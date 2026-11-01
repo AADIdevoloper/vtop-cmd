@@ -6,11 +6,11 @@
   const host = document.createElement('div');
   host.id = 'vtop-command-root';
   const shadow = host.attachShadow({ mode: 'open' });
-  const logo = "<svg xmlns=\"http://www.w3.org/2000/svg\" class=\"logo\" aria-hidden=\"true\" width=\"22\" height=\"22\" viewBox=\"0 0 128 128\" fill=\"none\">\n  <defs><linearGradient id=\"vtop-logo-bg\" x1=\"12\" y1=\"8\" x2=\"116\" y2=\"128\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#244B86\"/><stop offset=\"1\" stop-color=\"#101B34\"/></linearGradient></defs>\n  <rect x=\"2\" y=\"2\" width=\"124\" height=\"124\" rx=\"30\" fill=\"url(#vtop-logo-bg)\"/>\n  <rect x=\"3\" y=\"3\" width=\"122\" height=\"122\" rx=\"29\" stroke=\"#86B5FF\" stroke-opacity=\".22\" stroke-width=\"2\"/>\n  <path d=\"M29 40L59 88L92 39\" stroke=\"#F4F8FF\" stroke-width=\"11\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <path d=\"M78 32H97V51\" stroke=\"#61E1E3\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>";
+  const { logo, tokens, font } = globalThis.VtopBrand;
   shadow.innerHTML = `
     <style>
-      :host{all:initial;color-scheme:light;--surface:#fff;--text:#182438;--muted:#748093;--line:#e8ecf2;--hover:#f0f4fb;--accent:#3664d9;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}
-      :host([data-dark]){color-scheme:dark;--surface:#171d29;--text:#edf1fa;--muted:#97a4bb;--line:#2a3344;--hover:#242f46;--accent:#a9beff}
+      :host{all:initial;color-scheme:light;${tokens.light};font:${font};color:var(--text)}
+      :host([data-dark]){color-scheme:dark;${tokens.dark}}
       *{box-sizing:border-box}button,input{font:inherit}button{cursor:pointer}button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
       .dock{position:fixed;right:22px;bottom:22px;z-index:2147483645;display:flex;gap:8px;align-items:center;padding:10px 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--text);box-shadow:0 4px 24px #0002;font-weight:600}
       .logo{display:block;flex-shrink:0}.brand{display:flex;align-items:center;gap:9px}.brand .logo{width:24px;height:24px}.launcher{display:flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--text);padding:0;font-weight:600}.semester-chip{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid var(--line);border-radius:20px;padding:4px 9px;background:var(--hover);color:var(--accent);font-size:11px}

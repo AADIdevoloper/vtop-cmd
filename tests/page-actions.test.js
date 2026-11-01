@@ -24,7 +24,7 @@ test('saved semester waits for page load, releases its orphaned loading overlay,
   w.document.querySelector('main').innerHTML='<h1>Marks</h1>'+semester;
   w.document.querySelector('select').addEventListener('change',()=>{markChanges++;});
  });
- load('content.js');await pause(100);
+ load('brand.js');load('content.js');await pause(100);
  assert.equal(oldChanges,0,'no automatic change while native page is still loading');
  requests[0].resolve();await first;await pause(120);
  assert.equal(oldChanges,1);assert.ok(w.document.querySelector('.blockOverlay'));

@@ -11,6 +11,7 @@ function setup({ signedIn = true, savedDark = false, savedSemester, html } = {})
   w.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new w.Event('close')); };
   const writes = [];
   w.chrome = { storage: { local: { get: async () => ({ darkMode: savedDark, defaultSemester: savedSemester }), set: async value => writes.push(value) }, onChanged: { addListener() {} } } };
+  w.eval(fs.readFileSync(__dirname + '/../brand.js', 'utf8'));
   w.eval(fs.readFileSync(__dirname + '/../navigation.js', 'utf8'));
   w.eval(fs.readFileSync(__dirname + '/../semesters.js', 'utf8'));
   w.eval(fs.readFileSync(__dirname + '/../content.js', 'utf8'));

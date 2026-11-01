@@ -3,7 +3,16 @@ pdfjs.GlobalWorkerOptions.workerSrc=new URL('./vendor/pdf.worker.mjs',import.met
 const $=selector=>document.querySelector(selector),nonce=location.hash.slice(1);
 // ancestorOrigins survives referrer policies that strip document.referrer.
 const parentOrigin=location.ancestorOrigins?.[0]||(document.referrer?new URL(document.referrer).origin:'https://vtop.vit.ac.in');
-const container=$('#pages'),states=[],nearby=new Set();
+const container=$('#pages'),states=[],nearby=new Set(),GUTTER=48;
+// Match the command menu's palette and follow its dark-mode setting live.
+if(globalThis.VtopBrand){const style=document.createElement('style');style.textContent=`:root{color-scheme:light;${VtopBrand.tokens.light}}:root[data-dark]{color-scheme:dark;${VtopBrand.tokens.dark}}`;document.head.prepend(style);}
+function theme(dark){document.documentElement.toggleAttribute('data-dark',dark);}
+theme(new URLSearchParams(location.search).get('theme')==='dark');
+try{
+ chrome.storage.local.get('darkMode').then(settings=>theme(settings.darkMode===true)).catch(()=>{});
+ chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.darkMode)theme(changes.darkMode.newValue===true);});
+}catch{/* Tests and previews run without the extension runtime. */}
+if(!/Mac|iPhone|iPad/.test(navigator.platform))$('#zoom-key').textContent='Ctrl';
 let pdf,pageNumber=1,scale=1,received=false,autoFit=true,lastFitWidth=0,generation=0,running=false,scrollFrame,refreshTimer;
 function status(text){$('#status').textContent=text;}
 function notify(type,extra={}){parent.postMessage({type,nonce,...extra},parentOrigin);}
@@ -88,7 +97,7 @@ async function fit(){
  if(!pdf)return;autoFit=true;lastFitWidth=container.clientWidth;if(!lastFitWidth)return;
  const first=await pdf.getPage(pageNumber),width=first.getViewport({scale:1}).width;
  const bounds=container.getBoundingClientRect();
- rescale((lastFitWidth-36)/width,undefined,(bounds.top||0)+1);
+ rescale((lastFitWidth-GUTTER)/width,undefined,(bounds.top||0)+1);
 }
 new ResizeObserver(()=>{if(pdf&&autoFit&&container.clientWidth!==lastFitWidth)fit();}).observe(container);
 // Cmd/Ctrl+wheel zooms; trackpad pinch arrives as a ctrlKey wheel with small deltas.
@@ -99,6 +108,9 @@ container.addEventListener('wheel',event=>{
  zoom(Math.exp(-Math.max(-60,Math.min(60,delta))/300),event.clientX,event.clientY);
 },{passive:false});
 window.addEventListener('keydown',event=>{
+ // Focus inside this frame hides keys from VTOP, so hand Escape and Cmd/Ctrl+K to the preview shell.
+ if(event.key==='Escape'&&!event.isComposing){event.preventDefault();notify('viewer-key',{key:'Escape'});return;}
+ if((event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&event.key.toLowerCase()==='k'){event.preventDefault();notify('viewer-key',{key:'k'});return;}
  if(!pdf||!(event.ctrlKey||event.metaKey)||event.altKey)return;
  if(['+','='].includes(event.key)){event.preventDefault();zoom(1.2);}
  else if(['-','_'].includes(event.key)){event.preventDefault();zoom(1/1.2);}
@@ -117,7 +129,7 @@ window.addEventListener('message',async event=>{
   pdf=await task.promise;clearTimeout(timer);$('#total').textContent=`/ ${pdf.numPages}`;$('#page').max=pdf.numPages;
   const first=await pdf.getPage(1),base=first.getViewport({scale:1});
   // Before layout the width is 0; the ResizeObserver fits once the frame has a size.
-  lastFitWidth=container.clientWidth;scale=lastFitWidth?Math.max(.25,Math.min(4,(lastFitWidth-36)/base.width)):1;
+  lastFitWidth=container.clientWidth;scale=lastFitWidth?Math.max(.25,Math.min(4,(lastFitWidth-GUTTER)/base.width)):1;
   for(let number=1;number<=pdf.numPages;number++){
    const element=document.createElement('section');element.className='sheet';element.dataset.page=number;element.setAttribute('role','group');element.setAttribute('aria-label',`PDF page ${number} of ${pdf.numPages}`);
    const canvas=document.createElement('canvas');canvas.setAttribute('role','img');canvas.setAttribute('aria-label',`PDF page ${number} of ${pdf.numPages}`);
