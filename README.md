@@ -1,130 +1,227 @@
 # VTOP Command
 
-A Chrome Manifest V3 extension for `https://vtop.vit.ac.in/vtop/*`.
+A browser extension that makes VIT's VTOP portal faster and easier to use. It adds a ⌘K / Ctrl+K command menu, a proper dark mode, and helpers built into the pages you already use: attendance, assignments, marks, CGPA and forms.
+
+It works only on `https://vtop.vit.ac.in/vtop/*`. It reads VTOP the way you do, sends nothing anywhere else, and never submits anything for you.
+
+---
+
+## Contents
+
+- [Install](#install)
+- [Features](#features)
+- [Safety: your account, requests and privacy](#safety-your-account-requests-and-privacy)
+- [Development](#development)
+
+---
 
 ## Install
 
-From a source checkout, run `npm ci` followed by `npm run build` first. This creates the unpacked extension and ZIP in `dist/`.
+The extension isn't on the Chrome Web Store yet, so you load it yourself. It works in Chrome, Brave, Edge and other Chromium browsers.
 
-1. Open `chrome://extensions` in Chrome and enable **Developer mode**.
-2. Choose **Load unpacked** and select the `dist/vtop-command` folder from this project (or extract `dist/vtop-command.zip` and select that folder).
-3. Reload VTOP and sign in normally.
-4. Press **⌘K** on macOS or **Ctrl+K** on Windows/Linux. The launcher shows the shortcut for your platform, and the key works on any keyboard layout. Clicking the launcher also opens the menu.
+1. Build it from this folder:
+   ```bash
+   npm ci
+   npm run build
+   ```
+   This creates `dist/vtop-command/` and `dist/vtop-command.zip`.
+2. Open `chrome://extensions` (or `brave://extensions`) and turn on **Developer mode**.
+3. Choose **Load unpacked** and select `dist/vtop-command`.
+4. Open VTOP and sign in as usual.
 
-Type a page name, category, or alias such as `DA`, `CGPA`, `timetable`, or `attendance`. Use ↑/↓ and Enter, click a result, and press Escape to close. Dark mode is available from the menu's theme button or by searching `dark mode`.
+After updating the code, run `npm run build` again, click the reload icon on the extension's card, and refresh VTOP.
 
-Dark mode covers legacy boxes, nested accordions, tabs and date pickers. It also checks loaded text against its solid background and repairs low contrast, preserving status colors where possible. Unnamed white/gray panels receive a dark background. These changes follow dynamically loaded views and disappear in light mode; native inline styles and form values are preserved. Images, charts, gradients, disabled content and documents are excluded from automatic contrast correction.
+---
 
-## Default semester
+## Features
 
-On the first page with a semester dropdown (for example Time Table or Attendance), the extension prompts you to choose a default from VTOP's available options. The picker also works from any other page: it lists semesters VTOP has offered before, and if none are known yet (or the list is a day old) it loads them from Time Table in the background with the same read-only request VTOP's menu sends. If that fails, an **Open Time Table** button takes you there. Save it once to select that semester automatically on other matching pages, including after reloads and page replacements.
+### Command menu
 
-Use **⌘K/Ctrl+K → Choose default semester**, or the **Semester** button in the menu, to change it or turn automatic selection off. A manual change on the current page stays in place. If the saved semester isn't available on a page, the extension leaves that dropdown unchanged. Semester selection dispatches VTOP's native change event; no extra submit button is clicked.
+Press **⌘K** on macOS or **Ctrl+K** on Windows/Linux on any VTOP page. You can also click the small launcher in the bottom-right corner, or the extension's toolbar icon.
 
-The **Course Page** registered-course dropdown shows only courses from the saved default semester. Use the **Default semester / All semesters** buttons beside it to switch views. If no default is set, all courses stay available; if no courses match, a message explains how to browse all semesters.
+- **Search every page:** type a page name, a category or a common alias, such as `DA`, `CGPA`, `timetable`, `attendance` or `marks`. Use ↑/↓ and Enter, or click a result.
+- **Always current:** the menu reads VTOP's own menu each time it opens, including collapsed sections, so new pages show up on their own. Repeated names, such as regular and arrear exam schedules, are labelled by their section.
+- **Opens pages VTOP's way:** choosing a page clicks VTOP's own menu link, exactly as if you had clicked it.
+- **Commands:** **Home**, **Dark mode**, **Choose default semester**, **CGPA calculator**, and filter-memory settings are all in the menu.
+- **Launcher:** the small pill shows the logo, your shortcut and your default semester. Click the semester to change it.
+- **Elsewhere:** the toolbar icon opens VTOP in a new tab when you're on another site.
 
-## Form presets
+### Dark mode
 
-Each visible supported form has a **Create preset** button beside its main page actions, or beside its submit/search controls when there is no page action row. The button hides when that form is hidden or removed. The editor follows the ⌘K/Ctrl+K light/dark theme and shows a separate copy of its editable fields, with a scrollable field area and persistent bottom controls. Fill that copy, leave **Automatically fill this form** on at the bottom, and choose **Save preset**. The saved values fill the matching form when you return, including after VTOP replaces the page. **Edit preset · On/Off** reopens it; turn the bottom toggle off and save to pause automatic filling while retaining the values. Cancel discards edits; Delete preset removes them.
+Turn it on from the menu's theme button or by searching `dark mode`. It's off by default and stays off until you choose it.
 
-Presets stay in `chrome.storage.local` on this device, scoped by page and form. They support text, dates, times, dropdowns, checkboxes, radio buttons and multiple selections. Login/password forms, hidden values, CAPTCHA/security codes, file uploads and submit buttons are excluded. Presets do not click submit controls. Manual changes remain until that form is reopened. An enabled preset takes priority over default semester and remembered course/exam filters for its saved fields.
+- Covers VTOP's cards, tables, menus, forms, accordions, tabs, date pickers and older page styles.
+- **Readable text:** on dark backgrounds, low-contrast text is detected and lightened, keeping status colours such as green "Approved" and red "Absent" recognisable.
+- **Time Table:** your registered slots are highlighted so classes stand out from free slots.
+- **Untouched:** images, charts and PDF pages keep their original colours.
+- **Live:** works on content VTOP loads later, and disappears completely when you switch back to light mode.
 
-Late Hour Request and Leave Request dropdowns support type-to-search in both the original form and the preset editor, with arrow-key/Enter selection and an empty-results state. Inside the Late Hour preset, selecting a school loads faculty; selecting a venue type and academic block loads venues; work choices load date/time options. These lookups run VTOP's native change handlers on the underlying form without clicking submit. Loading choices temporarily disables Save. Changing a parent clears stale dependent selections. Reopening a saved preset loads its parent choices in sequence before restoring dependent values. Cancel discards preset edits; lookup choices already loaded in the underlying form remain there. Other forms use currently available options. Forms outside VTOP's content area and forms with no supported editable fields have no preset button.
+### Default semester
 
-## Study tools and filter memory
+Pick your semester once and the extension selects it for you on every page that asks for one, such as Time Table, Attendance and Marks.
 
-The floating launcher is a small pill with the logo, your platform's shortcut, and the default **semester**. Attendance and assignment details appear directly in VTOP's own tables.
+- The first page with a semester dropdown asks you to choose. You can also use **Choose default semester** in the menu, or click the semester in the launcher.
+- If you change the semester by hand on a page, your choice stays for that page.
+- If your saved semester isn't offered on a page, that dropdown is left alone.
+- Registration, application, payment, feedback and similar pages are never changed automatically.
 
-- **Attendance calculator:** open Attendance and load a semester. Each course row shows classes needed to reach 75%, or classes you can miss while staying at or above 75%, under the attendance percentage. The target is fixed at 75%. Estimates assume equally weighted future classes.
-- **Assignment deadlines:** on **Digital Assignment Upload**, a **Pending** column (just before Dashboard) shows each unsubmitted assignment as a date chip, earliest first, coloured by urgency (overdue, due within two days, later). Hover or focus a chip to see the assignment and its countdown. Submitted assignments (a file has been uploaded) are hidden; a course with nothing left shows a dash. The extension reads each course's dashboard with the same read-only request VTOP's Dashboard button sends, one course at a time, and stops as soon as you open a dashboard yourself. Inside a dashboard, each pending due date shows its countdown. Deadlines use IST; date-only dates assume the end of the day. Each course's result is reused for a random 1–5 hours, so VTOP sees far fewer requests and refreshes don't line up. The cache lives in Chrome's session storage (memory only, cleared when Chrome closes) and is never written to disk. Opening a course's dashboard refreshes that course, and picking a file, submitting or clicking Upload on a dashboard forgets it so the next list view asks VTOP again.
-- **Marks totals:** on **Marks**, each course's mark table ends with a **Total** row adding up Max. Mark, Weightage %, Scored Mark and Weightage Mark. Blank or non-numeric marks are skipped.
-- **Remember filters:** enabled by default for identified course/exam query dropdowns, scoped by page and selected semester. Existing native change handlers load the results. Transactional forms, free-text fields, and unrelated dropdowns are excluded. Use **Turn off filter memory** or **Forget saved page filters** in the command menu.
+**Course Page:** the registered-course list shows only your default semester's courses. **All semesters** shows everything. If no default is set yet, **Default semester** opens the picker.
 
-The calculators read only loaded or fetched page data and keep it in memory. Unknown date formats are ignored rather than guessed.
+### Attendance calculator
 
-## VTOP menus and Home
+On **Class Attendance**, each course shows how many classes you need to attend to reach 75%, or how many you can still miss while staying at or above it. It assumes every future class counts equally.
 
-VTOP's top mega-menus close on **Esc** or a click outside them. **Home** in the command menu opens VTOP's home page through its own header link.
+### Pending assignments
 
-## CGPA calculator
+On **Digital Assignment Upload**, a **Pending** column (just before Dashboard) lists each course's unsubmitted assignments as date chips, earliest first.
 
-Open Cmd+K / Ctrl+K and choose **CGPA calculator**. The command window expands,
-loads Grade History through VTOP's navigation, then loads Time Table behind the
-window. The saved default semester is used when available. You can switch the
-semester inside the calculator.
+- **Urgency colours:** overdue, due within two days, and later. Hover or focus a chip to see the assignment's name and time left.
+- **Submitted work is hidden;** a course with nothing pending shows a dash.
+- **Countdowns:** inside a course's dashboard, each pending due date shows how long is left.
+- Deadlines use IST; a date with no time is treated as the end of that day.
 
-Previous semester GPAs appear in horizontally scrolling tiles. Current courses
-start at S, with **− S +** controls: minus lowers the grade (S → A → B → C → D → E → F),
-and plus raises it. Matching grade predictions are remembered locally per semester
-and course. Credits come directly from VTOP; course credits and historical results
-are not editable.
+How these are loaded, and why that's gentle on VTOP, is explained in [Safety](#safety-your-account-requests-and-privacy).
 
-NGCR / Non-graded Core Requirement courses remain visible as non-graded and are
-excluded from SGPA and CGPA. S/A/B/C/D/E/F map to 10/9/8/7/6/5/0. F contributes
-credits with zero grade points. Unknown grades and zero-credit courses are excluded.
-Calculations use unrounded points and credits, rounding only the displayed GPA. The previous CGPA is checked against the CGPA VTOP shows in Grade History's CGPA Details; if the recomputed value ever differs beyond rounding, VTOP's figure is used for the projection. NGCR courses are recognised from Grade History's Course Distribution column and the Time Table's Category. Terms with only pass/fail results don't get a GPA tile.
+### Marks totals
 
-Repeat-course, replacement, and special grading rules still need refinement. Nothing is submitted to your academic record.
+On **Marks**, each course's table ends with a **Total** row adding up Max. Mark, Weightage %, Scored Mark and Weightage Mark. Blank marks are skipped rather than counted as zero.
 
-## PDF viewer
+### CGPA calculator
 
-Supported VTOP download links now open PDFs in an in-page viewer. Scroll continuously through all pages with your mouse wheel, trackpad, or keyboard. Type a page number to jump to it in the same scrollable document. Zoom with **⌘/Ctrl + scroll**, a trackpad pinch, **⌘/Ctrl + +/−**, or the toolbar; zoom keeps the point under the pointer in place, and **⌘/Ctrl + 0** or **Fit width** fits the page again. The preview uses the command menu's look and follows its light/dark setting; **Esc** closes it and **⌘K/Ctrl+K** jumps to the menu even while the PDF has focus. Pages render near the viewport and release distant canvases to limit memory use. **Download** saves the original PDF when you choose; **Close** returns to VTOP. Password-protected PDFs prompt inside the viewer.
+Open the menu and choose **CGPA calculator**.
 
-The extension preserves VTOP's authenticated requests and supports same-origin PDF/download/view-file links, explicit PDF links with opaque URLs, JavaScript `window.open` download helpers, PDF blob/data URLs, download-only GET/POST forms, VTOP's `downloadFileWithProgress` and `vtopDownload` helpers, and location-style navigations to download endpoints (via the Navigation API). Icon-only download buttons count as download intent. Download intent is recognized from form IDs and the clicked PDF/download control as well as the URL, including Curriculum's `academics/curriculDown/` form. Non-PDF files retain download behavior. Shift-click a link to bypass the viewer. External document services are not intercepted.
+- **Loads your data:** it opens Grade History and Time Table through VTOP's own menu, the same way you would. It uses your default semester, and you can switch semesters inside the calculator.
+- **Past results:** previous semesters' GPAs appear as tiles.
+- **Expected grades:** every current course starts at S. Use **−** and **+** to set the grade you expect (S, A, B, C, D, E, F), and the projected semester GPA and CGPA update as you go. Your predictions are remembered on this device.
+- **Grading rules:** S/A/B/C/D/E/F count as 10/9/8/7/6/5/0. F still counts its credits.
+- **Excluded:** non-graded (NGCR) courses, zero-credit courses and unknown grades.
+- **Cross-checked:** your previous CGPA is checked against the one VTOP shows. If they ever differ beyond rounding, VTOP's figure is used.
+- **Not yet handled:** repeat-course and other special grading rules.
 
-PDF.js is bundled locally with its license; no document is sent to a third-party viewer. Documents and temporary PDF URLs stay in memory and are released when the viewer closes. Rendering failures leave the original Download option available.
+Nothing in the calculator changes your academic record.
 
-## Navigation reliability
+### Form presets
 
-Automatic semester and remembered-filter changes wait for native page requests to finish. Command-menu navigation takes priority over queued changes on the page being left. Native VTOP handlers run in the page world, one action at a time. If an automatic action leaves a loading overlay behind after all requests finish, the extension clears only that action's leftover blocker; unrelated page blockers remain untouched.
+Forms you fill in often, such as Late Hour Request and Leave Request, can remember your usual answers.
 
-## Logo and toolbar
+1. Click **Create preset** beside the form.
+2. Fill in the copy of the form that opens, and leave **Automatically fill this form** on.
+3. Choose **Save preset**.
 
-VTOP Command uses an original V-shaped navigation-arrow logo. Pin the extension in Chrome and click its icon to open the command menu. On other sites, the toolbar icon opens VTOP in a new tab. The logo is also shown in the floating launcher and menu header.
+Next time you open that form, your saved answers are filled in for you. **You still review it and press VTOP's submit button yourself.** Presets never submit anything.
 
-## Read-only by design
+- **Edit preset** reopens it, and its On/Off label shows whether auto-fill is active.
+- **Reset** beside a field empties it and leaves it out of the preset. Resetting a School, Venue Type or Block also resets the fields that depend on it.
+- **Dependent choices load as on VTOP:** on Late Hour Request, choosing a school loads its faculty, and choosing a venue type and block loads venues. These use VTOP's own lookups.
+- **Excluded:** passwords, security codes, hidden fields and file uploads are never saved.
+- **Cancel, Esc or a click outside** discards your edits. **Delete preset** removes it.
 
-The extension never writes to VTOP or your academic record. It reads pages with the same requests VTOP's own menu and buttons send: a single Time Table load when the semester picker has nothing remembered yet (cached for a day), and each course's dashboard on Digital Assignment Upload, one at a time (cached for a random 1–5 hours). It clicks only menu links, the home link and menu toggles, and changes only dropdowns that load a view. Automatic semester selection and filter memory skip registration, application, payment, feedback and similar pages. PDF previews replace the browser's own download request (sent once, never replayed); a POST is only taken over for an explicit download endpoint. Form inputs are filled only from presets you save yourself; file uploads and submit buttons are never touched.
+### Searchable dropdowns
 
-## Behavior and privacy
+Every dropdown in the extension's own windows (the semester picker, the CGPA calculator and the preset editor) has a search box. The long dropdowns on Late Hour Request and Leave Request are searchable too. Type to filter, use ↑/↓ and Enter to pick, and Esc to close.
 
-- Discovers available native menu links on each open, including collapsed menus. No hardcoded route catalog.
-- Uses existing VTOP click handlers for both Bootstrap 5 and legacy navigation. Opening a destination only activates its menu entry; it does not submit the destination's form.
-- Categories and subsections distinguish repeated names, such as regular and arrear exam schedules.
-- Detects menu replacement while open and resolves the current menu element before activation.
-- Recent choices exist only in the current tab's memory. Only the theme, default semester, the list of semester names VTOP offers (up to 30), filter-memory setting, selected query dropdown values (up to 100), form presets, and CGPA predictions are saved to `chrome.storage.local`. Attendance counts and assignment deadlines are not persisted.
-- No analytics, credential storage, third-party document uploads, or broad host permissions. PDF preview fetches the original VTOP download using the existing session.
-- Theme styles are opt-in. Images and PDF pages retain original colors; the PDF viewer's chrome follows the menu theme.
+### Remember filters
 
-## Validation
+On pages where you pick a course or exam to view a report, your last choice is remembered for each page and semester. It's then selected for you next time. Use **Turn off filter memory** or **Forget saved page filters** in the menu to stop or clear it.
 
-`npm ci`, then `npm test` and `npm run check`.
+### PDF viewer
 
-Read-only inspection of the signed-in Vellore portal found 116 menu destinations in nine groups. Dashboard, Time Table, Attendance, and Grade History were inspected. Tests use synthetic DOM fixtures with the observed menu attributes, both menu handler classes, and duplicate page names. No account data is included in the fixtures.
+VTOP's PDF downloads, such as course materials and the curriculum, open in a built-in viewer instead of downloading straight away.
 
-A partial signed-in Brave audit found low-contrast legacy status colors and light nested panels. The updated extension was loaded into Brave, but a VTOP `ERR_CONNECTION_RESET` interrupted the broader page audit. All-page and all-nested-view verification remains incomplete; see [the audit report](docs/dark-mode-audit.md) for findings and limits.
+- **Reading:** scroll through all pages, or type a page number to jump to it.
+- **Zoom:** use ⌘/Ctrl + scroll, a trackpad pinch, ⌘/Ctrl + `+`/`−`, or the toolbar. ⌘/Ctrl + `0` or **Fit width** resets it.
+- **Download** saves the original file whenever you want it.
+- **Closing:** **Esc**, **Close** or a click outside closes the viewer.
+- **Password-protected PDFs** ask for the password inside the viewer.
+- **Bypass:** Shift-click a link to download it the normal way. Files that aren't PDFs download as usual.
 
-Live inspection in Brave verified the preset button and copied editor on Leave Request, including the bottom enable/disable switch. No live form values were entered or saved, and no live forms were submitted. Automated tests exercise preset restoration with synthetic fixtures; every VTOP page has not been checked.
+The viewer is bundled with the extension (PDF.js), so documents are never sent to an outside service.
 
-## Files
+### Small fixes
 
-- `search-select.js`: accessible type-to-search dropdown UI around native form controls.
-- `form-presets.js`: per-form local presets, isolated editor, enable/disable switch and automatic restoration.
-- `manifest.json`: VTOP-only content scripts and local preference permission.
-- `brand.js`: shared logo, colour tokens and platform shortcut for the menu, presets and PDF viewer.
-- `combobox.js`: searchable dropdown used inside the extension's own panels (command menu, CGPA calculator, preset editor).
-- `navigation.js`: menu discovery, categories, aliases, and search ranking.
-- `semesters.js`: semester dropdown discovery and matching across page labels.
-- `content.js`: isolated Shadow DOM command palette, semester chip, preferences, and automatic semester selection.
-- `dark-readability.js`: local contrast correction for loaded VTOP text and neutral light panels.
-- `cgpa.js`: Grade History and Time Table course readers and SGPA/CGPA maths.
-- `cgpa-ui.js`: CGPA calculator inside the command window.
-- `enhancements.js`: attendance/deadline calculations, table readers, and filter identification.
-- `enhancements-ui.js`: local filter restoration and its command-menu controls.
-- `page-runtime.js`: native request tracking and page-handler coordination.
-- `page-actions.js`: serialized automatic changes and navigation priority.
-- `page-enhancements.js`: per-row Attendance calculators, inline assignment deadlines, and default/all course filtering.
-- `pdf-bridge.js`: same-origin native download interception in the page world.
-- `pdf-preview.js`: in-page preview shell, original Download option, and temporary document cleanup.
-- `pdf-viewer.*`: local PDF.js renderer with pagination, zoom, and password support.
-- `dark.css`: scoped VTOP dark theme.
+- VTOP's top menus close when you press **Esc** or click outside them.
+- Dialogs close when you click outside them.
+
+---
+
+## Safety: your account, requests and privacy
+
+### Can this get my account flagged?
+
+Only VIT decides how it treats browser extensions, so no one can honestly promise "zero risk". What we can do is show exactly what the extension sends. It was designed so that, to VTOP, it looks like a careful student clicking through the portal, and is often lighter than that:
+
+- **It only uses VTOP's own requests.** Every request is one VTOP's own buttons and menus already send, to the same address, with the same fields and your existing sign-in. No hidden APIs, no guessed URLs, no scraping of other students' data.
+- **It is read-only.** It never submits a form, uploads a file, registers, applies, pays or changes anything on your account. The only things it "clicks" are menu links, the Home link and dropdowns that load a view.
+- **It never sends two of its own requests at once.** Automatic dropdown changes wait until VTOP has finished loading, then run one at a time. Opening another page cancels any that are still queued.
+- **It caches aggressively.** Results are reused rather than asked for again (see the table below). Assignment results are kept for a random 1–5 hours per course, so refreshes never fall into a regular pattern.
+- **It doesn't log in for you.** It never sees or stores your password, never fills in the CAPTCHA, and never keeps you signed in. Sign-in stays entirely between you and VTOP.
+- **It never talks to any other server.** No analytics, no tracking, no remote code. The manifest only allows it to run on `vtop.vit.ac.in`.
+
+### Every request the extension makes
+
+| When | What is sent | How often |
+| --- | --- | --- |
+| You open a page from the command menu, or the CGPA calculator opens Grade History and Time Table | A click on VTOP's own menu link | Once per page you open; identical to clicking it yourself |
+| A page asks for a semester and you've saved a default | VTOP's own dropdown change, which loads that semester's view | Once per page view; skipped on registration, payment and similar pages |
+| A remembered course/exam filter is restored | VTOP's own dropdown change | Once per page view, only if you haven't changed it yourself |
+| The semester picker has no semester list yet | One Time Table request, as sent by VTOP's menu | At most once per page load, and the list is reused for a day |
+| **Pending** column on Digital Assignment Upload | Each course's dashboard request, as sent by VTOP's Dashboard button | One course at a time, never in parallel. Each result is reused for a random 1–5 hours. It stops as soon as you open a dashboard yourself. |
+| A preset is auto-filled, or you change a School, Venue Type, Block or Work field in the preset editor | VTOP's own lookup for that dropdown | Once per change, one at a time; never a submit |
+| You open a PDF | The same download request your browser was about to send | Once; never repeated |
+
+**After you submit an assignment:** picking a file, submitting, or clicking Upload on a course dashboard clears that course's cached deadlines. If the course can't be identified, all of them are cleared. The Pending column then fetches fresh data next time, so it never shows work you've already handed in as pending.
+
+### What it never does
+
+- Submit, upload, register, apply, pay, or give feedback.
+- Touch submit buttons, file inputs, password fields or CAPTCHAs.
+- Change anything automatically on registration, application, payment, feedback or profile pages.
+- Retry failed requests in a loop, or poll VTOP in the background.
+- Send anything to any server other than VTOP.
+
+### What's stored, and where
+
+Everything stays in your browser on this device.
+
+| Stored | Where | Kept until |
+| --- | --- | --- |
+| Theme, default semester, list of semester names (up to 30), filter-memory setting, remembered filters (up to 100) | `chrome.storage.local` | You change or clear them, or remove the extension |
+| Form presets | `chrome.storage.local` | You delete the preset or remove the extension |
+| CGPA grade predictions | `chrome.storage.local`, per student | You change them or remove the extension |
+| Pending-assignment cache | `chrome.storage.session` (memory only) | 1–5 hours, an upload on that course, or closing the browser |
+| Recent menu choices, attendance figures, PDFs being viewed | The open tab's memory | You close or leave the page |
+
+Your password, marks history and attendance are never saved by the extension.
+
+---
+
+## Development
+
+```bash
+npm ci
+npm test       # unit and DOM tests (Node's test runner + jsdom)
+npm run check  # syntax check of every script
+npm run build  # builds dist/vtop-command and the ZIP
+```
+
+Tests use made-up data shaped like VTOP's real markup. No account data is included. Features have been checked on a signed-in account by browsing only; not every VTOP page has been verified. See [the dark-mode audit](docs/dark-mode-audit.md) for what was checked and its limits.
+
+### Files
+
+| File | Purpose |
+| --- | --- |
+| `manifest.json` | Manifest V3: VTOP-only content scripts and storage permission |
+| `brand.js` | Shared logo, colours and platform shortcut |
+| `combobox.js` | Searchable dropdown used in the extension's own windows |
+| `search-select.js` | Type-to-search for Late Hour and Leave Request dropdowns |
+| `navigation.js` | Menu discovery, categories, aliases and search ranking |
+| `semesters.js` | Semester dropdown discovery and matching; transactional-page guard |
+| `content.js` | Command menu, launcher, preferences and default-semester selection |
+| `dark.css`, `dark-readability.js` | Dark theme and contrast correction |
+| `enhancements.js`, `enhancements-ui.js` | Attendance and deadline maths, table readers, filter memory |
+| `page-enhancements.js` | Attendance rows, Pending column, marks totals, Course Page filter |
+| `cgpa.js`, `cgpa-ui.js` | Grade History and Time Table readers, CGPA maths and calculator |
+| `form-presets.js` | Form presets and their editor |
+| `page-runtime.js`, `page-actions.js` | Waits for VTOP to be idle and runs automatic actions one at a time |
+| `pdf-bridge.js`, `pdf-preview.js`, `pdf-viewer.*` | PDF download interception, preview window and PDF.js viewer |
+| `extension-action.js` | Toolbar button and session-storage access |
