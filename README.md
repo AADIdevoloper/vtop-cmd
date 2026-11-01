@@ -21,6 +21,14 @@ Use **Cmd+K → Choose default semester**, or the **Semester** button in the men
 
 The **Course Page** registered-course dropdown shows only courses from the saved default semester. Use the **Default semester / All semesters** buttons beside it to switch views. If no default is set, all courses stay available; if no courses match, a message explains how to browse all semesters.
 
+## Form presets
+
+Each visible supported form has a **Create preset** button beside its main page actions, or beside its submit/search controls when there is no page action row. The button hides when that form is hidden or removed. The editor follows the Cmd+K light/dark theme and shows a separate copy of its editable fields, with a scrollable field area and persistent bottom controls. Fill that copy, leave **Automatically fill this form** on at the bottom, and choose **Save preset**. The saved values fill the matching form when you return, including after VTOP replaces the page. **Edit preset · On/Off** reopens it; turn the bottom toggle off and save to pause automatic filling while retaining the values. Cancel discards edits; Delete preset removes them.
+
+Presets stay in `chrome.storage.local` on this device, scoped by page and form. They support text, dates, times, dropdowns, checkboxes, radio buttons and multiple selections. Login/password forms, hidden values, CAPTCHA/security codes, file uploads and submit buttons are excluded. Presets do not click submit controls. Manual changes remain until that form is reopened. An enabled preset takes priority over default semester and remembered course/exam filters for its saved fields.
+
+Late Hour Request and Leave Request dropdowns support type-to-search in both the original form and the preset editor, with arrow-key/Enter selection and an empty-results state. Inside the Late Hour preset, selecting a school loads faculty; selecting a venue type and academic block loads venues; work choices load date/time options. These lookups run VTOP's native change handlers on the underlying form without clicking submit. Loading choices temporarily disables Save. Changing a parent clears stale dependent selections. Reopening a saved preset loads its parent choices in sequence before restoring dependent values. Cancel discards preset edits; lookup choices already loaded in the underlying form remain there. Other forms use currently available options. Forms outside VTOP's content area and forms with no supported editable fields have no preset button.
+
 ## Study tools and filter memory
 
 The floating launcher shows a clickable **semester chip**. Attendance calculations appear directly on the Attendance page. Use **Tools**, or search **assignment** in Cmd+K, for the assignment countdown and filter settings.
@@ -53,7 +61,7 @@ VTOP Command uses an original V-shaped navigation-arrow logo. Pin the extension 
 - Uses existing VTOP click handlers for both Bootstrap 5 and legacy navigation. Opening a destination only activates its menu entry; it does not submit the destination's form.
 - Categories and subsections distinguish repeated names, such as regular and arrear exam schedules.
 - Detects menu replacement while open and resolves the current menu element before activation.
-- Recent choices exist only in the current tab's memory. Only the theme, default semester, filter-memory setting, and selected query dropdown values (up to 100) are saved to `chrome.storage.local`. Attendance counts and assignment details are not persisted.
+- Recent choices exist only in the current tab's memory. The theme, default semester, filter-memory setting, selected query dropdown values (up to 100), form presets, and CGPA predictions are saved to `chrome.storage.local`. Attendance counts and assignment details are not persisted.
 - No analytics, credential storage, third-party document uploads, or broad host permissions. PDF preview fetches the original VTOP download using the existing session.
 - Theme styles are opt-in. Images and PDF pages retain original colors. The PDF viewer has its own dark toolbar.
 
@@ -63,10 +71,12 @@ VTOP Command uses an original V-shaped navigation-arrow logo. Pin the extension 
 
 Read-only inspection of the signed-in Vellore portal found 116 menu destinations in nine groups. Dashboard, Time Table, Attendance, and Grade History were inspected. Tests use synthetic DOM fixtures with the observed menu attributes, both menu handler classes, and duplicate page names. No account data is included in the fixtures.
 
-Automated tests and local browser previews do not replace testing the installed extension in Chrome against every VTOP page. That installation/live extension check has not been performed.
+Live inspection in Brave verified the preset button and copied editor on Leave Request, including the bottom enable/disable switch. No live form values were entered or saved, and no live forms were submitted. Automated tests exercise preset restoration with synthetic fixtures; every VTOP page has not been checked.
 
 ## Files
 
+- `search-select.js`: accessible type-to-search dropdown UI around native form controls.
+- `form-presets.js`: per-form local presets, isolated editor, enable/disable switch and automatic restoration.
 - `manifest.json`: VTOP-only content scripts and local preference permission.
 - `navigation.js`: menu discovery, categories, aliases, and search ranking.
 - `semesters.js`: semester dropdown discovery and matching across page labels.

@@ -12,6 +12,8 @@
         "https://vtop.vit.ac.in/vtop/*"
       ],
       "js": [
+        "search-select.js",
+        "form-presets.js",
         "navigation.js",
         "semesters.js",
         "enhancements.js",

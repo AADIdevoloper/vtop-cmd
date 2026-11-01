@@ -97,7 +97,7 @@
     for (const select of selectors) {
       const choices = semesters.options(select);
       for (const choice of choices) knownSemesters.set(semesters.key(choice.label), choice);
-      if (!defaultSemester || !choices.length) continue;
+      if (!defaultSemester || !choices.length || globalThis.VtopFormPresets?.owns(select)) continue;
       const signature = JSON.stringify(choices);
       if (appliedSemesters.get(select) === signature) continue;
       const choice = semesters.match(select, defaultSemester);
