@@ -69,6 +69,17 @@ test('preview ignores forged origins and non-local blob references',()=>{
  send(w.location.origin,'loading');assert.equal(dialog.open,true);
  send(w.location.origin,'ready',{blobUrl:'https://attacker.example/private.pdf'});assert.equal(fetched,0);dom.window.close();
 });
+test('a click on the preview backdrop closes it; clicks inside do not',()=>{
+ const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window;
+ w.chrome={runtime:{getURL:name=>'chrome-extension://test-extension/'+name}};
+ w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
+ w.eval(fs.readFileSync(__dirname+'/../brand.js','utf8'));w.eval(fs.readFileSync(__dirname+'/../pdf-preview.js','utf8'));
+ w.dispatchEvent(new w.MessageEvent('message',{source:w,origin:w.location.origin,data:{source:'vtop-command-pdf',id:'pdf-1-1',kind:'loading'}}));
+ const dialog=w.document.querySelector('#vtop-pdf-preview').shadowRoot.querySelector('dialog');dialog.getBoundingClientRect=()=>({left:20,right:980,top:20,bottom:700});
+ dialog.dispatchEvent(new w.MouseEvent('click',{bubbles:true,clientX:500,clientY:300}));assert.equal(dialog.open,true);
+ dialog.querySelector('h2').dispatchEvent(new w.MouseEvent('click',{bubbles:true,clientX:5,clientY:5}));assert.equal(dialog.open,true);
+ dialog.dispatchEvent(new w.MouseEvent('click',{bubbles:true,clientX:5,clientY:5}));assert.equal(dialog.open,false);dom.window.close();
+});
 test('preview Download keeps original PDF bytes and filename, and Close revokes temporary data',async()=>{
  const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window;
  const bytes=new TextEncoder().encode('%PDF-1.4\noriginal bytes').buffer,revoked=[];

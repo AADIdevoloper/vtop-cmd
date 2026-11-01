@@ -274,6 +274,8 @@
   });
   function appliedReset() { for(const form of root()?.querySelectorAll('form') || []) for(const field of fields(form)) applied.delete(field); }
   for (const name of ['.close','.cancel']) $(name).addEventListener('click',()=>dialog.close());
+  // A click on the backdrop discards edits, like Cancel and Esc.
+  dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();});
   dialog.addEventListener('close',()=>{if(editing){editing.cancelled=true;editing.queue=[];}if(previousFocus?.isConnected) previousFocus.focus();});
   document.addEventListener('keydown',event=>{if(dialog.open && shortcut.matches(event)) dialog.close();});
   function syncTheme() {

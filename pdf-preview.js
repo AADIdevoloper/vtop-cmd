@@ -47,6 +47,8 @@
   }
   function close(){if(dialog.open)dialog.close();}
   shadow.querySelector('.close').addEventListener('click',close);
+  // A click on the backdrop (outside the dialog box) closes it, like the command menu.
+  dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)close();});
   dialog.addEventListener('close',()=>{activeId=null;release();if(previousFocus?.isConnected)previousFocus.focus();});
   function show(id){
     if(!dialog.open){previousFocus=document.activeElement;dialog.showModal();}

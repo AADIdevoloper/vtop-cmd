@@ -29,6 +29,11 @@ test('disabled presets survive reload, remain editable, and do not fill; cancel 
  two.ui.querySelector('textarea').value='Discard me';two.ui.querySelector('.cancel').click();two.open();assert.equal(two.ui.querySelector('textarea').value,'Saved draft');
  two.ui.querySelector('.enabled').checked=true;two.ui.querySelector('.save').click();await pause();assert.equal(two.w.document.querySelector('textarea').value,'Saved draft');one.dom.window.close();two.dom.window.close();
 });
+test('a click on the editor backdrop closes it without saving',async()=>{
+ const s=await setup();s.open();const dialog=s.ui.querySelector('dialog');dialog.getBoundingClientRect=()=>({left:20,right:640,top:20,bottom:600});
+ s.ui.querySelector('textarea').value='Not saved';dialog.dispatchEvent(new s.w.MouseEvent('click',{bubbles:true,clientX:300,clientY:300}));assert.equal(dialog.open,true);
+ dialog.dispatchEvent(new s.w.MouseEvent('click',{bubbles:true,clientX:700,clientY:300}));assert.equal(dialog.open,false);assert.equal(s.store.formPresets,undefined);s.dom.window.close();
+});
 test('page and form identities isolate presets, including newly discovered forms',async()=>{
  const s=await setup();s.open();s.ui.querySelector('textarea').value='Only on this page';s.ui.querySelector('.save').click();await pause();
  s.w.document.querySelector('h2').textContent='Different request';s.w.document.querySelector('textarea').value='';await pause();assert.equal(s.w.document.querySelector('textarea').value,'');
