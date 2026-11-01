@@ -205,7 +205,7 @@
       if(copy.tagName==='SELECT') {
         copy.replaceChildren(...[...source.options].map(option=>{const item=new Option(option.text,option.value);item.disabled=option.disabled||option.parentElement?.disabled;return item;}));
         if(available(copy,control.desired)) {
-          if(!source.disabled)control.pendingDesired=false;
+          // A saved value stays wanted until you change it or its parent: a later lookup may reload its choices.
           if(copy.multiple)[...copy.options].forEach(option=>{option.selected=control.desired.includes(option.value);});else copy.value=control.desired;
         } else {copy.value=source.value;if(!control.pendingDesired)control.desired=read(copy);}
       } else if(!control.desired && source.value) {copy.value=source.value;control.desired=read(copy);}
