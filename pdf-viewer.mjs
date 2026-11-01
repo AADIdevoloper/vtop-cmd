@@ -4,7 +4,7 @@ const $=selector=>document.querySelector(selector),nonce=location.hash.slice(1);
 // ancestorOrigins survives referrer policies that strip document.referrer.
 const parentOrigin=location.ancestorOrigins?.[0]||(document.referrer?new URL(document.referrer).origin:'https://vtop.vit.ac.in');
 const container=$('#pages'),states=[],nearby=new Set();
-let pdf,pageNumber=1,scale=1,received=false,autoFit=true,lastFitWidth=0,generation=0,running=false,scrollFrame;
+let pdf,pageNumber=1,scale=1,received=false,autoFit=true,lastFitWidth=0,generation=0,running=false,scrollFrame,refreshTimer;
 function status(text){$('#status').textContent=text;}
 function notify(type,extra={}){parent.postMessage({type,nonce,...extra},parentOrigin);}
 function sheetTop(state){return Math.max(0,state.element.offsetTop-(parseFloat(getComputedStyle(container).paddingTop)||0));}
@@ -39,7 +39,6 @@ async function paint(){
     // Render off-screen and swap in, so the previous bitmap stays visible until the new one is ready.
     const canvas=document.createElement('canvas');canvas.setAttribute('role','img');canvas.setAttribute('aria-label',`PDF page ${state.number} of ${pdf.numPages}`);
     canvas.width=Math.ceil(viewport.width*ratio);canvas.height=Math.ceil(viewport.height*ratio);
-    canvas.style.width=`${viewport.width}px`;canvas.style.height=`${viewport.height}px`;
     const task=page.render({canvasContext:canvas.getContext('2d'),viewport,transform:ratio===1?null:[ratio,0,0,ratio,0,0]});state.task=task;
     try{await task.promise;}finally{if(state.task===task)state.task=null;}
     if(version!==generation){state.rendered=false;continue;}
@@ -64,21 +63,47 @@ function jump(number){
  if(!pdf||number<1||number>pdf.numPages)return;
  pageNumber=number;controls();const state=states[number-1];container.scrollTop=sheetTop(state);nearby.add(state);paint();
 }
-function reflow(){
- if(!pdf)return;const current=states[pageNumber-1];
- const offset=current?(container.scrollTop-sheetTop(current))/Math.max(1,parseFloat(current.element.style.height)):0;
+// Re-render at the current scale; visible bitmaps stay (stretched by CSS) until their sharp replacement lands.
+function refresh(){
  generation++;
- for(const state of states){clearCanvas(state);state.failed=false;dimensions(state);}
- controls();
- if(current)container.scrollTop=sheetTop(current)+Math.max(0,offset)*current.height*scale;
+ for(const state of states){if(state.task){state.task.cancel();state.task=null;}state.rendered=false;state.failed=false;}
  paint();
 }
+// Zoom around a point (the pointer, or the viewport centre) so the content under it stays put.
+function rescale(next,clientX,clientY){
+ next=Math.max(.25,Math.min(4,next));if(!pdf||Math.abs(next-scale)<.001)return;
+ const bounds=container.getBoundingClientRect();
+ const x=clientX??(bounds.left||0)+container.clientWidth/2,y=clientY??(bounds.top||0)+container.clientHeight/2;
+ const anchor=[...nearby].find(state=>{const rect=state.element.getBoundingClientRect();return rect.top<=y&&rect.bottom>=y;})||states[pageNumber-1];
+ const before=anchor.element.getBoundingClientRect();
+ const fx=(x-(before.left||0))/Math.max(1,before.width||1),fy=(y-before.top)/Math.max(1,before.bottom-before.top);
+ scale=next;for(const state of states)dimensions(state);controls();
+ const after=anchor.element.getBoundingClientRect(),dx=(after.left||0)+fx*(after.width||0)-x,dy=after.top+fy*(after.bottom-after.top)-y;
+ if(Number.isFinite(dx)&&after.width)container.scrollLeft+=dx;
+ if(Number.isFinite(dy))container.scrollTop+=dy;
+ clearTimeout(refreshTimer);refreshTimer=setTimeout(refresh,150);
+}
+function zoom(factor,clientX,clientY){autoFit=false;rescale(scale*factor,clientX,clientY);}
 async function fit(){
- if(!pdf)return;autoFit=true;lastFitWidth=container.clientWidth;
+ if(!pdf)return;autoFit=true;lastFitWidth=container.clientWidth;if(!lastFitWidth)return;
  const first=await pdf.getPage(pageNumber),width=first.getViewport({scale:1}).width;
- scale=Math.max(.25,Math.min(4,(lastFitWidth-36)/width));reflow();
+ const bounds=container.getBoundingClientRect();
+ rescale((lastFitWidth-36)/width,undefined,(bounds.top||0)+1);
 }
 new ResizeObserver(()=>{if(pdf&&autoFit&&container.clientWidth!==lastFitWidth)fit();}).observe(container);
+// Cmd/Ctrl+wheel zooms; trackpad pinch arrives as a ctrlKey wheel with small deltas.
+container.addEventListener('wheel',event=>{
+ if(!pdf||!(event.ctrlKey||event.metaKey))return;
+ event.preventDefault();
+ const delta=event.deltaY*(event.deltaMode===1?16:event.deltaMode===2?container.clientHeight||800:1);
+ zoom(Math.exp(-Math.max(-60,Math.min(60,delta))/300),event.clientX,event.clientY);
+},{passive:false});
+window.addEventListener('keydown',event=>{
+ if(!pdf||!(event.ctrlKey||event.metaKey)||event.altKey)return;
+ if(['+','='].includes(event.key)){event.preventDefault();zoom(1.2);}
+ else if(['-','_'].includes(event.key)){event.preventDefault();zoom(1/1.2);}
+ else if(event.key==='0'){event.preventDefault();fit();}
+});
 container.addEventListener('scroll',()=>{if(scrollFrame)return;scrollFrame=requestAnimationFrame(()=>{scrollFrame=null;updateCurrent();});},{passive:true});
 window.addEventListener('message',async event=>{
  if(received||event.source!==parent||event.origin!==parentOrigin||event.data?.type!=='pdf-data'||event.data.nonce!==nonce||!(event.data.bytes instanceof ArrayBuffer))return;
@@ -108,7 +133,7 @@ window.addEventListener('message',async event=>{
 $('#previous').addEventListener('click',()=>jump(pageNumber-1));
 $('#next').addEventListener('click',()=>jump(pageNumber+1));
 $('#page').addEventListener('change',()=>{const value=Number($('#page').value);if(pdf&&Number.isInteger(value)&&value>=1&&value<=pdf.numPages)jump(value);else $('#page').value=pageNumber;});
-$('#zoom-in').addEventListener('click',()=>{autoFit=false;scale=Math.min(4,scale+.25);reflow();});
-$('#zoom-out').addEventListener('click',()=>{autoFit=false;scale=Math.max(.25,scale-.25);reflow();});
+$('#zoom-in').addEventListener('click',()=>zoom(1.2));
+$('#zoom-out').addEventListener('click',()=>zoom(1/1.2));
 $('#fit').addEventListener('click',fit);
 notify('viewer-ready');

@@ -40,3 +40,18 @@ test('viewer acknowledges the document and reports when it has loaded',async()=>
  const {dom,w}=setup(),types=[];w.addEventListener('message',event=>types.push(event.data?.type));await pause();
  assert.ok(types.includes('viewer-loaded'));assert.equal(w.document.querySelector('#status').textContent,'');dom.window.close();
 });
+test('Cmd/Ctrl+wheel and pinch zoom the document; a plain wheel only scrolls',async()=>{
+ const {dom,w,container}=setup();await pause();const page=container.children[0],width=parseFloat(page.style.width);
+ const plain=new w.WheelEvent('wheel',{deltaY:100,cancelable:true,clientX:400,clientY:300});container.dispatchEvent(plain);
+ assert.equal(plain.defaultPrevented,false);assert.equal(parseFloat(page.style.width),width);
+ const zoomIn=new w.WheelEvent('wheel',{deltaY:-100,metaKey:true,cancelable:true,clientX:400,clientY:300});container.dispatchEvent(zoomIn);
+ assert.equal(zoomIn.defaultPrevented,true);const zoomed=parseFloat(page.style.width);assert.ok(zoomed>width);
+ const pinch=new w.WheelEvent('wheel',{deltaY:8,ctrlKey:true,cancelable:true,clientX:400,clientY:300});container.dispatchEvent(pinch);
+ assert.ok(parseFloat(page.style.width)<zoomed);assert.match(w.document.querySelector('#zoom').textContent,/^\d+%$/);
+ assert.deepEqual([...container.children].map(sheet=>sheet.dataset.page),['1','2','3']);dom.window.close();
+});
+test('keyboard zoom shortcuts work inside the viewer and Cmd+0 fits the width again',async()=>{
+ const {dom,w,container}=setup();await pause();const page=container.children[0],width=parseFloat(page.style.width);
+ w.dispatchEvent(new w.KeyboardEvent('keydown',{key:'=',metaKey:true,cancelable:true}));assert.ok(parseFloat(page.style.width)>width);
+ w.dispatchEvent(new w.KeyboardEvent('keydown',{key:'0',ctrlKey:true,cancelable:true}));await pause();assert.equal(parseFloat(page.style.width),width);dom.window.close();
+});
