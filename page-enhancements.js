@@ -265,7 +265,35 @@
     const {item,badge}=line(state.record);item.append(badge);state.shadow.querySelector('ul').replaceChildren(item);
   }
   setInterval(()=>{for(const state of liveBadges){if(!state.host.isConnected){liveBadges.delete(state);continue;}state.record?renderDue(state):renderDeadlines(state);}},60000);
-  function scan(){scanCourses();scanAttendance();scanDeadlines();}
+  // Marks: each course's mark table gets a Total row for Max. Mark, Weightage %, Scored Mark and Weightage Mark.
+  const MARK_COLUMNS=[/^max\.?\s*mark$/i,/^weightage\s*%$/i,/^scored\s*mark$/i,/^weightage\s*mark$/i];
+  const markNumber=text=>/^-?\d+(?:\.\d+)?$/.test(text)?Number(text):null;
+  const markFormat=value=>String(Math.round(value*100)/100);
+  function scanMarks(){
+    for(const table of document.querySelectorAll('table')){
+      const header=table.rows[0];if(!header)continue;
+      const titles=[...header.cells].map(cell=>clean(cell.textContent));
+      const titleIndex=titles.findIndex(title=>/^mark\s*title$/i.test(title));
+      const columns=MARK_COLUMNS.map(pattern=>titles.findIndex(title=>pattern.test(title)));
+      if(titleIndex<0||columns.some(index=>index<0))continue;
+      let total=[...table.rows].find(row=>row.classList.contains('vtop-mark-total'));
+      const rows=[...table.rows].slice(1).filter(row=>row!==total&&row.cells.length===header.cells.length);
+      if(!rows.length){total?.remove();continue;}
+      const sums=columns.map(index=>{
+        const values=rows.map(row=>markNumber(clean(row.cells[index].textContent))).filter(value=>value!==null);
+        return values.length?markFormat(values.reduce((sum,value)=>sum+value,0)):'—';
+      });
+      if(!total){
+        total=document.createElement('tr');total.className=`${rows[0].className} vtop-mark-total`.trim();
+        for(let i=0;i<header.cells.length;i++){const cell=document.createElement('td');cell.style.cssText='font-weight:600;border-top-width:2px';total.append(cell);}
+        total.cells[titleIndex].textContent='Total';
+      }
+      columns.forEach((index,i)=>{if(total.cells[index].textContent!==sums[i])total.cells[index].textContent=sums[i];});
+      // Keep it last even when VTOP appends rows to the same table.
+      if(total!==table.rows[table.rows.length-1]||!total.isConnected)rows.at(-1).parentElement.append(total);
+    }
+  }
+  function scan(){scanCourses();scanAttendance();scanDeadlines();scanMarks();}
   try {
     chrome.storage.local.get('defaultSemester').then(settings=>{preference=settings.defaultSemester;ready=true;scan();}).catch(()=>{ready=true;scan();});
     chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.defaultSemester){preference=changes.defaultSemester.newValue;scanCourses();}});

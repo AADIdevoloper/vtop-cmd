@@ -226,3 +226,19 @@ test('an upload from a form with no course number releases every cached course',
  w.document.querySelector('#file').dispatchEvent(new w.Event('change',{bubbles:true}));await pause();
  assert.deepEqual(session.data.deadlineCache,{});dom.window.close();
 });
+test('each marks table gets a Total row for max, weightage %, scored and weightage marks',async()=>{
+ const row=(n,title,max,weight,status,scored,weighted)=>`<tr class="tableContent-level1"><td><output>${n}</output></td><td><output>${title}</output></td><td><output>${max}</output></td><td><output>${weight}</output></td><td><output>${status}</output></td><td><output>${scored}</output></td><td><output>${weighted}</output></td><td><output></output></td></tr>`;
+ const header='<tr class="tableHeader-level1"><td>Sl.No.</td><td>Mark Title</td><td>Max. Mark</td><td>Weightage %</td><td>Status</td><td>Scored Mark</td><td>Weightage Mark</td><td>Remark</td></tr>';
+ const html=`<main id="b5-pagewrapper"><form id="studentMarkView"><table class="customTable"><tbody><tr class="tableContent"><td>SAMPLE101</td></tr><tr class="tableContent"><td>
+  <table class="customTable-level1" id="first"><tbody>${header}${row(1,'Sample Test - I',50,15,'Present','32.0','9.6')}${row(2,'Sample Test - II',50,15,'Present','35.0','10.5')}</tbody></table></td></tr>
+  <tr class="tableContent"><td><table class="customTable-level1" id="second"><tbody>${header}${row(1,'Quiz - I',10,10,'Present','8.5','8.5')}${row(2,'Quiz - II',10,10,'Absent','','')}</tbody></table></td></tr></tbody></table></form></main>`;
+ const {dom,w}=setup(html);await pause();
+ const totals=id=>{const rows=[...w.document.querySelector('#'+id).rows];const last=rows.at(-1);return {count:rows.filter(r=>r.classList.contains('vtop-mark-total')).length,cells:[...last.cells].map(c=>c.textContent),last:last.classList.contains('vtop-mark-total')};};
+ const first=totals('first');assert.equal(first.count,1);assert.ok(first.last);assert.deepEqual(first.cells,['','Total','100','30','','67','20.1','']);
+ assert.deepEqual(totals('second').cells,['','Total','20','20','','8.5','8.5',''],'blank marks are skipped');
+ // A row VTOP adds later is counted, and the total stays last and single.
+ w.document.querySelector('#first tbody').insertAdjacentHTML('beforeend',row(3,'Sample Quiz',10,10,'Present','9.0','9'));await pause();
+ const updated=totals('first');assert.equal(updated.count,1);assert.ok(updated.last);assert.deepEqual(updated.cells.slice(2,7),['110','40','','76','29.1']);
+ // The outer course table has no Mark Title column and is left alone.
+ assert.equal(w.document.querySelector('.customTable').querySelectorAll(':scope > tbody > .vtop-mark-total').length,0);dom.window.close();
+});
