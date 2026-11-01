@@ -13,10 +13,12 @@
   const pdfBlobs = new Set();
   URL.createObjectURL = function (blob) {
     const url = createURL(blob);
-    if (/application\/(?:pdf|octet-stream)/i.test(blob?.type || '')) pdfBlobs.add(url);
+    // Untyped blobs are common for AJAX downloads; preview() sniffs the bytes before showing them.
+    if (/^$|application\/(?:pdf|octet-stream)/i.test(blob?.type || '')) pdfBlobs.add(url);
     return url;
   };
   URL.revokeObjectURL = function (url) { pdfBlobs.delete(url); return revokeURL(url); };
+  const nativeURLs = new Set();
   let sequence = 0;
   let bypassClick = false;
   let downloadIntent = null;
@@ -26,7 +28,10 @@
   }
   function pendingDownload() {return downloadIntent && Date.now()-downloadIntent.time<10000;}
   function controlHint(control) {
-    return control ? [control.id,control.name,control.textContent,control.getAttribute('aria-label'),control.getAttribute('title'),control.value].filter(Boolean).join(' ') : '';
+    if (!control) return '';
+    // Icon-only buttons carry intent in classes such as fa-download or fa-file-pdf.
+    const classes = [control,...control.querySelectorAll('[class]')].map(node => node.getAttribute('class'));
+    return [control.id,control.name,control.textContent,control.getAttribute('aria-label'),control.getAttribute('title'),control.value,...classes].filter(Boolean).join(' ');
   }
   function candidate(value) {
     try {
@@ -45,11 +50,11 @@
   function emit(kind, id, extra = {}) { window.postMessage({ source: 'vtop-command-pdf', kind, id, ...extra }, location.origin); }
   function download(blob, name) {
     const url = createURL(blob), anchor = document.createElement('a');
-    anchor.href = url; anchor.download = name; anchor.dataset.vtopPdfBypass = 'true';
+    anchor.href = url; anchor.download = name; anchor.dataset.vtopPdfBypass = 'true'; nativeURLs.add(url);
     document.documentElement.append(anchor); originalClick.call(anchor); anchor.remove();
-    setTimeout(() => revokeURL(url),60000);
+    setTimeout(() => { nativeURLs.delete(url); revokeURL(url); },60000);
   }
-  async function preview(url, init, suggestedName) {
+  async function preview(url, init, suggestedName, fallback) {
     downloadIntent=null;
     const id = `pdf-${Date.now()}-${++sequence}`;
     emit('loading',id);
@@ -61,6 +66,7 @@
       const isPdf = signature.length === 5 && String.fromCharCode(...signature) === '%PDF-';
       const name = filename(response.headers.get('content-disposition'), suggestedName || (isPdf ? 'document.pdf' : 'download'));
       if (!isPdf) {
+        if (fallback && /text\/html/i.test(blob.type)) { emit('not-pdf',id); fallback(); return; }
         if (/text\/html|application\/json/i.test(blob.type)) throw new Error('VTOP returned a page instead of a document. Sign in again and retry.');
         download(blob,name); emit('not-pdf',id); return;
       }
@@ -75,7 +81,7 @@
     // Menu entries and JavaScript helpers must run their native handlers first.
     if(!rawHref||/^\s*(?:#|javascript:)/i.test(rawHref)||anchor.matches('.systemB5BtnMenu,.systemBtnMenu,.quickB5MainMenu,[data-bs-toggle]'))return false;
     const url = anchor.href;
-    const isBlob = url.startsWith(`blob:${location.origin}/`) && (/\.pdf$/i.test(anchor.download) || pdfBlobs.has(url));
+    const isBlob = url.startsWith(`blob:${location.origin}/`) && (anchor.hasAttribute('download') || pdfBlobs.has(url));
     const isDataPdf=/^data:application\/pdf(?:[;,])/i.test(url);
     const explicitFile=localURL(url)&&(anchor.hasAttribute('download')||anchor.type==='application/pdf'||downloadHint(controlHint(anchor)));
     if (!candidate(url) && !isBlob && !isDataPdf && !explicitFile) return false;
@@ -87,6 +93,13 @@
   };
   HTMLAnchorElement.prototype.click = function (...args) {
     if (!handleAnchor(this)) return originalClick.apply(this,args);
+  };
+  // FileSaver-style helpers dispatch a synthetic click on a detached anchor, which the document listener never sees.
+  const nativeDispatch = EventTarget.prototype.dispatchEvent;
+  EventTarget.prototype.dispatchEvent = function (event) {
+    if (this instanceof HTMLAnchorElement && !this.isConnected && event?.type === 'click' &&
+      !(event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) && handleAnchor(this)) return false;
+    return nativeDispatch.call(this,event);
   };
   document.addEventListener('click',event => {
     if (event.ctrlKey || event.metaKey || event.shiftKey || event.altKey) {
@@ -114,6 +127,26 @@
     else return false;
     return true;
   }
+  // Catch-all for location.href/assign, native form submissions and downloads the hooks above cannot see.
+  window.navigation?.addEventListener?.('navigate',event => {
+    if (bypassClick || !event.cancelable || event.hashChange || ['reload','traverse'].includes(event.navigationType)) return;
+    const url = event.destination?.url;
+    if (!url || nativeURLs.has(url) || [...(event.formData?.values() || [])].some(value => typeof value !== 'string')) return;
+    const isDownload = event.downloadRequest != null;
+    const isBlob = url.startsWith(`blob:${location.origin}/`) && (isDownload || pdfBlobs.has(url));
+    const isDataPdf = /^data:application\/pdf(?:[;,])/i.test(url);
+    if (!candidate(url) && !isBlob && !isDataPdf && !(localURL(url) && (isDownload || pendingDownload()))) return;
+    event.preventDefault();
+    const fields = event.formData;
+    // A page that merely looks like a download is replayed natively instead of being shown as an error.
+    preview(url,fields ? {method:'POST',body:fields} : undefined,event.downloadRequest || undefined,() => {
+      nativeURLs.add(url); setTimeout(() => nativeURLs.delete(url),10000);
+      if (!fields) { location.assign(url); return; }
+      const form = document.createElement('form'); form.method = 'post'; form.action = url; form.hidden = true;
+      for (const [name,value] of fields) { const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; form.append(input); }
+      document.documentElement.append(form); originalSubmit.call(form); form.remove();
+    });
+  });
   HTMLFormElement.prototype.submit = function (...args) { if (!handleForm(this)) return originalSubmit.apply(this,args); };
   document.addEventListener('submit',event=>{
     if (!event.defaultPrevented && handleForm(event.target,event.submitter)) {event.preventDefault();event.stopImmediatePropagation();}

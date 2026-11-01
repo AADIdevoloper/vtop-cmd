@@ -36,3 +36,7 @@ test('zoom resizes all page placeholders while retaining continuous page order',
  w.document.querySelector('#zoom-in').click();await pause();assert.ok(parseFloat(pages[0].style.width)>width);
  assert.deepEqual([...container.children].map(page=>page.dataset.page),['1','2','3']);assert.equal(container.children[0],pages[0]);assert.equal(parseFloat(pages[0].style.width),parseFloat(pages[2].style.width));dom.window.close();
 });
+test('viewer acknowledges the document and reports when it has loaded',async()=>{
+ const {dom,w}=setup(),types=[];w.addEventListener('message',event=>types.push(event.data?.type));await pause();
+ assert.ok(types.includes('viewer-loaded'));assert.equal(w.document.querySelector('#status').textContent,'');dom.window.close();
+});
