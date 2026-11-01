@@ -8,15 +8,31 @@
     const missable = total ? Math.max(0, Math.floor(attended / ratio - total + 1e-9)) : 0;
     return { percentage: total ? attended / total * 100 : null, needed, missable };
   }
+  // Header rows may use rowspan/colspan (VTOP's assignment dashboard has a two-row header);
+  // expand them into one name per data column.
   function tableRows(doc) {
     const result = [];
     for (const table of doc.querySelectorAll('table')) {
       const rows = [...table.rows].filter(row => row.closest('table') === table);
-      let headers = [];
-      for (const row of rows) {
+      const start = rows.findIndex(row => [...row.cells].some(cell => /attended|due date|last date|deadline/i.test(clean(cell.textContent))));
+      if (start < 0) continue;
+      const headers = [], carry = [];
+      let index = start;
+      for (; index < rows.length; index++) {
+        const row = rows[index];
+        if (index > start && !carry.some(count => count > 0) && !row.classList.contains('tableHeader') && ![...row.cells].every(cell => cell.tagName === 'TH')) break;
+        let column = 0;
+        for (const cell of row.cells) {
+          while (carry[column] > 0) column++;
+          const span = Math.max(1, cell.colSpan || 1), down = Math.max(1, cell.rowSpan || 1), text = clean(cell.textContent);
+          for (let k = 0; k < span; k++) { headers[column + k] = headers[column + k] ? `${headers[column + k]} ${text}` : text; if (down > 1) carry[column + k] = down; }
+          column += span;
+        }
+        for (let k = 0; k < carry.length; k++) if (carry[k] > 0) carry[k]--;
+      }
+      for (const row of rows.slice(index)) {
         const cells = [...row.cells].map(cell => clean(cell.textContent));
-        if (!headers.length && cells.some(text => /attended|due date|last date|deadline/i.test(text))) { headers = cells; continue; }
-        if (headers.length && cells.length === headers.length) result.push({ headers, cells });
+        if (cells.length === headers.length) result.push({ headers, cells, row });
       }
     }
     return result;
@@ -54,16 +70,20 @@
   }
   function assignmentRows(doc) {
     const records = [];
-    for (const {headers, cells} of tableRows(doc)) {
+    for (const {headers, cells, row} of tableRows(doc)) {
       const d = headers.findIndex(h => /due date|last date|deadline/i.test(h));
       if (d < 0) continue;
       const deadline = parseDeadline(cells[d]); if (!deadline) continue;
       const s = headers.findIndex(h => /uploaded|submission status|^status$/i.test(h));
+      // The dashboard has no status column; a "Last Updated On" timestamp means a file was uploaded.
+      const u = s < 0 ? headers.findIndex(h => /last updated/i.test(h)) : -1;
       const status = s < 0 ? '' : cells[s];
-      const submitted = !/not|pending|no\b|yet|unsubmitted/i.test(status) && /^(yes|submitted|uploaded|completed)(?:\b|$)/i.test(status);
+      const submitted = u >= 0 ? !!cells[u] && !/^[-–—\s]*$/.test(cells[u]) :
+        !/not|pending|no\b|yet|unsubmitted/i.test(status) && /^(yes|submitted|uploaded|completed)(?:\b|$)/i.test(status);
       const title = headers.findIndex(h => /assignment title|^title$|assignment name/i.test(h));
       const course = headers.findIndex(h => /course name|course title|course detail/i.test(h));
-      records.push({ label: [cells[course], cells[title]].filter(Boolean).join(' · ') || `Assignment ${records.length + 1}`, ...deadline, submitted, statusKnown: s >= 0 });
+      records.push({ label: [cells[course], cells[title]].filter(Boolean).join(' · ') || `Assignment ${records.length + 1}`, title: cells[title] || '',
+        ...deadline, submitted, statusKnown: s >= 0 || u >= 0, row, dueCell: row?.cells[d] });
     }
     return records;
   }
@@ -77,6 +97,31 @@
     const days = Math.floor(minutes / 1440), hours = Math.floor(minutes % 1440 / 60), mins = minutes % 60;
     return `${difference < 0 ? 'Overdue by' : 'Due in'} ${days ? `${days}d ` : ''}${hours}h ${mins}m`;
   }
+  // One short line per assignment, for inline display next to a course or due date.
+  function dueState(record, now = Date.now()) {
+    if (record.submitted) return { tone: 'done', text: 'Submitted' };
+    const left = record.time - now, minutes = Math.ceil(Math.abs(left) / 60000);
+    const days = Math.floor(minutes / 1440), hours = Math.floor(minutes % 1440 / 60), mins = minutes % 60;
+    // Two largest units are enough for a badge; overdue work only needs days once it is a day late.
+    const span = days ? (left < 0 ? `${days}d` : `${days}d ${hours}h`) : hours ? `${hours}h ${mins}m` : `${mins}m`;
+    return { tone: left < 0 ? 'overdue' : left < 2 * 86400000 ? 'soon' : 'pending', text: `${left < 0 ? 'Overdue by' : 'Due in'} ${span}` };
+  }
+  // Courses on Digital Assignment Upload: each row opens its dashboard via myFunction('<classId>').
+  function assignmentCourses(doc) {
+    const courses = [];
+    for (const table of doc.querySelectorAll('table')) {
+      const rows = [...table.rows].filter(row => row.closest('table') === table);
+      const headers = rows[0] ? [...rows[0].cells].map(cell => clean(cell.textContent)) : [];
+      if (!headers.some(h => /course title/i.test(h)) || !headers.some(h => /dashboard/i.test(h))) continue;
+      for (const row of rows.slice(1)) {
+        const button = row.querySelector('[onclick*="myFunction"]');
+        const classId = button?.getAttribute('onclick').match(/myFunction\(\s*['"]([A-Za-z0-9]+)['"]/)?.[1];
+        const dashboardCell = button?.closest('td,th');
+        if (classId && dashboardCell?.parentElement === row) courses.push({ classId, row, table, headerRow: rows[0], dashboardCell });
+      }
+    }
+    return courses;
+  }
   function pageRoot(doc) { return doc.querySelector('#b5-pagewrapper, #page-wrapper, #page-content') || doc.body; }
   function filterKey(select, doc) {
     if (select.disabled || select.multiple || /semester/i.test(`${select.id} ${select.name}`) ||
@@ -85,13 +130,13 @@
     const form = select.closest('form');
     const heading = clean(container.querySelector('h1,h2,h3,h4,h5,h6,.card-header,.panel-title')?.textContent);
     const page = form?.id || form?.getAttribute('name') || heading;
-    if (/registration|payment|refund|password|leave request|withdraw|enroll|application|booking|mess|profile|bank/i.test(`${page} ${heading}`)) return null;
+    if (/registration|payment|refund|password|leave request|withdraw|enroll|application|apply|booking|mess|profile|bank|feedback|re-?exam/i.test(`${page} ${heading}`)) return null;
     const field = select.id || select.name;
     if (!page || !field) return null;
     const semester = [...doc.querySelectorAll('select')].filter(s=>/semester/i.test(`${s.id} ${s.name}`)).map(s => s.value).filter(Boolean).join('|') || select.dataset.vtopSemesterScope || '';
     return JSON.stringify([page, semester, field]);
   }
-  const api = { attendance, attendanceRows, parseDeadline, assignmentRows, dueSummary, countdown, filterKey };
+  const api = { attendance, attendanceRows, parseDeadline, assignmentRows, dueSummary, countdown, dueState, assignmentCourses, filterKey };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.VtopEnhancements = api;
 })(globalThis);

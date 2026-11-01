@@ -6,36 +6,41 @@
   const host = document.createElement('div');
   host.id = 'vtop-command-root';
   const shadow = host.attachShadow({ mode: 'open' });
-  const logo = "<svg xmlns=\"http://www.w3.org/2000/svg\" class=\"logo\" aria-hidden=\"true\" width=\"22\" height=\"22\" viewBox=\"0 0 128 128\" fill=\"none\">\n  <defs><linearGradient id=\"vtop-logo-bg\" x1=\"12\" y1=\"8\" x2=\"116\" y2=\"128\" gradientUnits=\"userSpaceOnUse\"><stop stop-color=\"#244B86\"/><stop offset=\"1\" stop-color=\"#101B34\"/></linearGradient></defs>\n  <rect x=\"2\" y=\"2\" width=\"124\" height=\"124\" rx=\"30\" fill=\"url(#vtop-logo-bg)\"/>\n  <rect x=\"3\" y=\"3\" width=\"122\" height=\"122\" rx=\"29\" stroke=\"#86B5FF\" stroke-opacity=\".22\" stroke-width=\"2\"/>\n  <path d=\"M29 40L59 88L92 39\" stroke=\"#F4F8FF\" stroke-width=\"11\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n  <path d=\"M78 32H97V51\" stroke=\"#61E1E3\" stroke-width=\"8\" stroke-linecap=\"round\" stroke-linejoin=\"round\"/>\n</svg>";
+  const { logo, tokens, font, shortcut } = globalThis.VtopBrand;
+  const combobox = globalThis.VtopCombobox;
   shadow.innerHTML = `
     <style>
-      :host{all:initial;color-scheme:light;--surface:#fff;--text:#182438;--muted:#748093;--line:#e8ecf2;--hover:#f0f4fb;--accent:#3664d9;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}
-      :host([data-dark]){color-scheme:dark;--surface:#171d29;--text:#edf1fa;--muted:#97a4bb;--line:#2a3344;--hover:#242f46;--accent:#a9beff}
+      :host{all:initial;color-scheme:light;${tokens.light};font:${font};color:var(--text)}
+      :host([data-dark]){color-scheme:dark;${tokens.dark}}
       *{box-sizing:border-box}button,input{font:inherit}button{cursor:pointer}button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-      .dock{position:fixed;right:22px;bottom:22px;z-index:2147483645;display:flex;gap:8px;align-items:center;padding:10px 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--text);box-shadow:0 4px 24px #0002;font-weight:600}
-      .logo{display:block;flex-shrink:0}.brand{display:flex;align-items:center;gap:9px}.brand .logo{width:24px;height:24px}.launcher{display:flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--text);padding:0;font-weight:600}.semester-chip{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid var(--line);border-radius:20px;padding:4px 9px;background:var(--hover);color:var(--accent);font-size:11px}
+      .dock{position:fixed;right:18px;bottom:18px;z-index:2147483645;display:flex;gap:2px;align-items:center;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);box-shadow:0 2px 10px #0000001a}
+      .dock button{display:flex;align-items:center;gap:7px;border:0;border-radius:8px;background:transparent;color:inherit;padding:4px 8px;font-size:12px;font-weight:500;white-space:nowrap}.dock button:hover{background:var(--hover);color:var(--text)}
+      .dock .launcher{padding:3px 8px 3px 3px}.dock .shortcut{border:0;padding:0;font-size:12px;color:inherit;letter-spacing:.3px}.dock .sep{width:1px;height:16px;background:var(--line)}
+      .dock .semester-chip{display:block;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+      .logo{display:block;flex-shrink:0}.brand{display:flex;align-items:center;gap:9px}.brand .logo{width:24px;height:24px}
       kbd{font:11px/1.5 inherit;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:2px 5px;white-space:nowrap}
       dialog{padding:0;margin:12vh auto 0;width:min(620px,calc(100vw - 28px));max-height:78vh;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--text);box-shadow:0 24px 100px #0005;overflow:hidden}
       dialog::backdrop{background:#10182788;backdrop-filter:blur(5px)}
       header{display:flex;gap:12px;align-items:center;padding:20px 22px 12px}.brand{font-size:11px;font-weight:750;letter-spacing:2px;color:var(--muted)}.spacer{flex:1}
       .theme,.close,.semester-button{border:1px solid var(--line);border-radius:8px;color:var(--muted);background:transparent;padding:5px 8px;font-size:12px}
-      [hidden]{display:none!important}.semester-settings{padding:8px 22px 24px}.semester-settings h2{font-size:20px;margin:8px 0}.semester-settings p{color:var(--muted);font-size:13px}.semester-settings label{display:block;margin:18px 0 8px}.semester-settings select{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}.semester-actions{display:flex;gap:10px;margin-top:20px}.semester-actions button{padding:9px 13px;border:1px solid var(--line);border-radius:8px;background:var(--hover);color:var(--text)}.semester-actions button:disabled{opacity:.5;cursor:default}.semester-button{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      [hidden]{display:none!important}.semester-settings{padding:8px 22px 24px}.semester-settings h2{font-size:20px;margin:8px 0}.semester-settings p{color:var(--muted);font-size:13px}.semester-settings label{display:block;margin:18px 0 8px;font-size:12px;font-weight:600}.semester-actions{display:flex;gap:10px;margin-top:20px}.semester-actions button{padding:9px 13px;border:1px solid var(--line);border-radius:8px;background:var(--hover);color:var(--text)}.semester-actions button:disabled{opacity:.5;cursor:default}.semester-button{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .search{display:flex;align-items:center;gap:14px;margin:0 22px 16px}.search span{font-size:24px;color:var(--accent)}input{width:100%;padding:7px 0;border:0;outline:none;background:transparent;color:var(--text);font-size:21px;letter-spacing:-.5px}input::placeholder{color:var(--muted)}
       .meta{display:flex;justify-content:space-between;padding:10px 22px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);letter-spacing:.5px}
       .results{padding:0 10px 10px;max-height:46vh;overflow-y:auto;overscroll-behavior:contain}.option{display:flex;align-items:center;gap:13px;border-radius:10px;padding:12px;cursor:pointer;scroll-margin:8px}.option[aria-selected=true]{background:var(--hover)}.icon{display:grid;place-items:center;width:32px;height:32px;border:1px solid var(--line);border-radius:9px;color:var(--muted);flex-shrink:0}.label{font-size:14px;font-weight:550}.category{font-size:11px;color:var(--muted);margin-top:2px}.arrow{margin-left:auto;color:var(--accent);opacity:0}.option[aria-selected=true] .arrow{opacity:1}.empty{padding:30px 14px;text-align:center;color:var(--muted)}
       footer{display:flex;gap:14px;padding:13px 22px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}.local{margin-left:auto}
-      @media(max-width:480px){.dock{right:12px;bottom:12px}.local{display:none}dialog{margin-top:7vh}header{padding-top:16px}input{font-size:18px}}
+      ${combobox.css}
+      @media(max-width:480px){.dock{right:12px;bottom:12px}.dock .semester-chip{max-width:96px}.local{display:none}dialog{margin-top:7vh}header{padding-top:16px}input{font-size:18px}}
       @media(prefers-reduced-motion:no-preference){dialog[open]{animation:arrive .13s ease-out}@keyframes arrive{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}}
     </style>
-    <div class="dock"><button class="launcher" type="button" aria-label="Open VTOP command menu">${logo} <span>Jump to…</span><kbd class="shortcut"></kbd></button><button class="semester-chip" type="button" aria-label="Change default semester">Choose semester</button></div>
+    <div class="dock"><button class="launcher" type="button" aria-label="Open VTOP command menu" title="Jump to a VTOP page">${logo}<kbd class="shortcut"></kbd></button><span class="sep" aria-hidden="true"></span><button class="semester-chip" type="button" aria-label="Change default semester">Set semester</button></div>
     <dialog aria-label="VTOP command menu">
       <header><span class="brand">${logo}VTOP / COMMAND</span><span class="spacer"></span><button class="semester-button" type="button" aria-label="Choose default semester">Semester</button><button class="theme" type="button"></button><button class="close" type="button" aria-label="Close command menu">Esc</button></header>
       <section class="semester-settings" hidden aria-labelledby="semester-title">
         <h2 id="semester-title">Choose your default semester</h2>
         <p class="semester-help">We'll select this semester whenever a VTOP page asks for one. You can still change it on any page.</p>
-        <label for="default-semester">Default semester</label><select id="default-semester"></select>
+        <label for="default-semester-trigger">Default semester</label><select id="default-semester"></select>
         <p class="semester-status" role="status"></p>
-        <div class="semester-actions"><button class="save-semester" type="button">Save default</button><button class="clear-semester" type="button">Turn off</button><button class="skip-semester" type="button">Back</button></div>
+        <div class="semester-actions"><button class="save-semester" type="button">Save default</button><button class="open-timetable" type="button" hidden>Open Time Table</button><button class="clear-semester" type="button">Turn off</button><button class="skip-semester" type="button">Back</button></div>
       </section>
       <div class="search"><span aria-hidden="true">⌕</span><input aria-label="Search VTOP pages" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="results" placeholder="Where do you want to go?" autocomplete="off" spellcheck="false"></div>
       <div class="meta"><span class="section">ALL PAGES</span><span class="count" role="status" aria-live="polite"></span></div>
@@ -44,20 +49,63 @@
     </dialog>`;
   document.documentElement.append(host);
   const dialog = shadow.querySelector('dialog');
-  const input = shadow.querySelector('input');
+  const input = shadow.querySelector('.search input');
   const list = shadow.querySelector('.results');
   let commands = [], filtered = [], selected = 0, recent = [], previousFocus, dark = false;
   let defaultSemester = null, preferencesReady = false, prompted = false, semesterView = false;
   let appliedSemesters = new WeakMap();
-  const knownSemesters = new Map();
+  let knownSemesters = new Map(), semestersUpdated = 0, semesterFetch = null, semesterFetchFailed = false;
   const semesterPicker = shadow.querySelector('#default-semester');
+  const semesterCombobox = combobox.create(semesterPicker, { label: 'Default semester', id: 'default-semester-trigger' });
   let semesterChoices = [];
+  const SEMESTER_CACHE_AGE = 24 * 60 * 60 * 1000;
+  // Remember every semester VTOP has offered so the picker works on pages without a dropdown.
+  function rememberSemesters(choices, { fresh = false, persist = true } = {}) {
+    const merged = new Map();
+    // A complete list from VTOP keeps VTOP's newest-first order; older remembered terms follow.
+    for (const source of fresh ? [choices, knownSemesters.values()] : [knownSemesters.values(), choices])
+      for (const choice of source) if (choice?.value && choice?.label && !merged.has(semesters.key(choice.label)))
+        merged.set(semesters.key(choice.label), { value: String(choice.value), label: String(choice.label) });
+    const list = [...merged.values()].slice(0, 30);
+    const changed = JSON.stringify(list) !== JSON.stringify([...knownSemesters.values()]);
+    knownSemesters = new Map(list.map(choice => [semesters.key(choice.label), choice]));
+    const stale = Date.now() - semestersUpdated > SEMESTER_CACHE_AGE / 24;
+    if (fresh) semestersUpdated = Date.now();
+    // Page scans run on every DOM change; only write when the list changed or the timestamp is an hour old.
+    if (persist && (changed || (fresh && stale))) {
+      try { chrome.storage.local.set({ knownSemesters: { list, updated: semestersUpdated } })?.catch(() => {}); } catch { /* Extension reloaded. */ }
+    }
+    return changed;
+  }
+  function semesterRoute() {
+    const pages = discover(document);
+    return (pages.find(page => /time ?table/i.test(page.label)) || pages.find(page => /^class attendance$/i.test(page.label)))?.id || 'academics/common/StudentTimeTable';
+  }
+  // Load the semester list the same way VTOP's menu loads Time Table: a read-only POST of the page fragment.
+  function fetchSemesters() {
+    if (semesterFetch) return semesterFetch;
+    semesterFetch = (async () => {
+      const csrf = document.querySelector('input[name="_csrf"]')?.value || document.querySelector('meta[name="_csrf"]')?.content;
+      const id = document.querySelector('#authorizedIDX')?.value;
+      if (!csrf || !id) throw new Error('Not signed in');
+      for (let wait = 0; wait < 50 && document.documentElement.getAttribute('data-vtop-page-busy') === 'true'; wait++) await new Promise(resolve => setTimeout(resolve, 100));
+      const url = new URL(semesterRoute(), document.baseURI);
+      if (url.origin !== location.origin || !url.pathname.startsWith('/vtop/')) throw new Error('Unexpected route');
+      const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ verifyMenu: 'true', authorizedID: id, _csrf: csrf, nocache: String(Date.now()) }) });
+      const html = response.ok ? await response.text() : '';
+      const choices = html.includes('___INTERNAL___RESPONSE___') ? [] : semesters.fromHTML(html);
+      if (!choices.length) throw new Error('No semesters found');
+      rememberSemesters(choices, { fresh: true });
+    })().catch(() => { semesterFetchFailed = true; }).finally(() => { if (semesterView && dialog.open) renderSemesterPicker(); });
+    return semesterFetch;
+  }
   function setSemesterPreference(value) {
     defaultSemester = value?.value && value?.label ? { value: String(value.value), label: String(value.label) } : null;
     appliedSemesters = new WeakMap();
     shadow.querySelector('.semester-button').textContent = defaultSemester?.label || 'Semester';
     shadow.querySelector('.semester-button').title = defaultSemester ? `Default: ${defaultSemester.label}` : 'Choose default semester';
-    shadow.querySelector('.semester-chip').textContent = defaultSemester?.label.replace(/\s+Semester/i, '') || 'Choose semester';
+    shadow.querySelector('.semester-chip').textContent = defaultSemester?.label.replace(/\s+Semester/i, '') || 'Set semester';
     shadow.querySelector('.semester-chip').title = defaultSemester ? `Default semester: ${defaultSemester.label}. Click to change.` : 'Choose default semester';
   }
   function saveSemesterPreference(value) {
@@ -71,19 +119,29 @@
     shadow.querySelectorAll('p.empty').forEach(p => p.remove());
     shadow.querySelector('.semester-settings').hidden = false;
     const available = semesters.discover(document).flatMap(semesters.options);
-    for (const choice of available) knownSemesters.set(semesters.key(choice.label), choice);
+    if (available.length) rememberSemesters(available, { fresh: true });
+    if (!semesterFetch && (!knownSemesters.size || Date.now() - semestersUpdated > SEMESTER_CACHE_AGE)) fetchSemesters();
+    renderSemesterPicker();
+    semesterCombobox.trigger.focus();
+  }
+  function renderSemesterPicker() {
+    const picked = semesterChoices[Number(semesterPicker.value)];
+    const selectedKey = semesterPicker.value !== '' && picked ? semesters.key(picked.label) : defaultSemester && semesters.key(defaultSemester.label);
     semesterChoices = [...knownSemesters.values()];
-    semesterPicker.replaceChildren(new Option('Choose a semester…', ''));
+    semesterPicker.replaceChildren(new Option(semesterChoices.length ? 'Choose a semester…' : 'Loading semesters…', ''));
     semesterChoices.forEach((choice, index) => semesterPicker.add(new Option(choice.label, String(index))));
-    const current = semesterChoices.findIndex(choice => defaultSemester && semesters.key(choice.label) === semesters.key(defaultSemester.label));
+    const current = semesterChoices.findIndex(choice => semesters.key(choice.label) === selectedKey);
     semesterPicker.value = current < 0 ? '' : String(current);
     semesterPicker.disabled = !semesterChoices.length;
+    const loading = !semesterChoices.length && semesterFetch && !semesterFetchFailed;
+    if (!semesterChoices.length && !loading) semesterPicker.options[0].textContent = 'No semesters found';
     shadow.querySelector('.save-semester').disabled = semesterPicker.value === '';
     shadow.querySelector('.clear-semester').hidden = !defaultSemester;
+    shadow.querySelector('.open-timetable').hidden = !!semesterChoices.length || loading;
     shadow.querySelector('.semester-status').textContent = semesterChoices.length ?
-      'Applied on matching pages. If unavailable, the page stays unchanged.' :
-      'Open Time Table, Attendance, or another page with a semester dropdown, then choose your default here.';
-    semesterPicker.focus();
+      'Applied on matching pages. If unavailable, the page stays unchanged.' : loading ? 'Loading semesters from VTOP…' :
+      "Couldn't load semesters automatically. Open Time Table, Attendance, or another page with a semester dropdown, then choose your default here.";
+    semesterCombobox.sync();
   }
   function showPages() {
     host.dispatchEvent(new CustomEvent('vtop-cgpa-hide'));
@@ -94,10 +152,13 @@
   function scanSemesters() {
     if (!preferencesReady) return;
     const selectors = semesters.discover(document);
+    let pageHasSemesters = false;
     for (const select of selectors) {
       const choices = semesters.options(select);
-      for (const choice of choices) knownSemesters.set(semesters.key(choice.label), choice);
-      if (!defaultSemester || !choices.length || globalThis.VtopFormPresets?.owns(select)) continue;
+      if (choices.length) rememberSemesters(choices, { fresh: true });
+      if (!choices.length || semesters.transactional(select)) continue;
+      pageHasSemesters = true;
+      if (!defaultSemester || globalThis.VtopFormPresets?.owns(select)) continue;
       const signature = JSON.stringify(choices);
       if (appliedSemesters.get(select) === signature) continue;
       const choice = semesters.match(select, defaultSemester);
@@ -108,11 +169,11 @@
       if (globalThis.VtopPageActions) globalThis.VtopPageActions.change(select, choice.value);
       else { select.value = choice.value; select.dispatchEvent(new Event('change', { bubbles: true })); }
     }
-    if (!defaultSemester && !prompted && knownSemesters.size && !dialog.open) {
+    if (!defaultSemester && !prompted && pageHasSemesters && !dialog.open) {
       prompted = true; showSemesterSettings();
     }
   }
-  shadow.querySelector('.shortcut').textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘ K' : 'Ctrl K';
+  shadow.querySelector('.shortcut').textContent = shortcut.label;
 
   function setTheme(value) {
     dark = value;
@@ -127,19 +188,35 @@
   }
   setTheme(false);
   try {
-    chrome.storage.local.get(['darkMode', 'defaultSemester']).then(settings => {
+    chrome.storage.local.get(['darkMode', 'defaultSemester', 'knownSemesters']).then(settings => {
       setTheme(settings.darkMode === true); setSemesterPreference(settings.defaultSemester);
+      if (Array.isArray(settings.knownSemesters?.list)) {
+        rememberSemesters(settings.knownSemesters.list, { persist: false });
+        semestersUpdated = Number(settings.knownSemesters.updated) || 0;
+      }
       if (settings.defaultSemester === null) prompted = true;
       preferencesReady = true; scanSemesters();
     }).catch(() => { preferencesReady = true; scanSemesters(); });
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && changes.darkMode) setTheme(changes.darkMode.newValue === true);
+      if (area === 'local' && Array.isArray(changes.knownSemesters?.newValue?.list)) {
+        rememberSemesters(changes.knownSemesters.newValue.list, { persist: false });
+        semestersUpdated = Math.max(semestersUpdated, Number(changes.knownSemesters.newValue.updated) || 0);
+        if (semesterView && dialog.open) renderSemesterPicker();
+      }
       if (area === 'local' && changes.defaultSemester) { setSemesterPreference(changes.defaultSemester.newValue); scanSemesters(); }
     });
   } catch { preferencesReady = true; setTimeout(scanSemesters, 0); }
 
+  // VTOP's header house icon: <a onclick="javascript:home();">.
+  const homeLink = () => document.querySelector('a[onclick*="home()"]');
+  function goHome() {
+    close();
+    if (globalThis.VtopPageActions) globalThis.VtopPageActions.navigate(homeLink); else homeLink()?.click();
+  }
   function allCommands() {
-    return [...commands,
+    const home = homeLink() ? [{ id: 'vtop:home', label: 'Home', category: 'VTOP', keywords: 'dashboard main start landing', navigate: true, action: goHome }] : [];
+    return [...home, ...commands,
       { id: 'vtop:cgpa', label: 'CGPA calculator', category: 'Study tools', keywords: 'grades gpa credits predict semester', action: () => {
         semesterView = true;
         for (const selector of ['.search', '.meta', '.results', 'footer', '.semester-settings']) shadow.querySelector(selector).hidden = true;
@@ -147,8 +224,8 @@
         host.dispatchEvent(new CustomEvent('vtop-cgpa-open', { detail: { defaultSemester } }));
       } },
       { id: 'vtop:semester', label: 'Choose default semester', category: defaultSemester?.label || 'Preferences', keywords: 'semester term default automatic', action: showSemesterSettings },
-      { id: 'vtop:tools', label: 'Assignment countdown & page filters', category: 'Study tools', keywords: 'due deadline digital assignment filters remember', action: () => host.dispatchEvent(new CustomEvent('vtop-tools-open')) },
-      { id: 'vtop:theme', label: 'Toggle dark mode', category: 'Appearance', keywords: 'light theme night', action: toggleTheme }];
+      { id: 'vtop:theme', label: 'Toggle dark mode', category: 'Appearance', keywords: 'light theme night', action: toggleTheme },
+      ...(globalThis.VtopCommandExtras?.() || [])];
   }
   function updateSelection() {
     [...list.children].forEach((row, index) => row.setAttribute('aria-selected', String(index === selected)));
@@ -176,7 +253,7 @@
     filtered.forEach((command, index) => {
       const row = document.createElement('div'); row.className = 'option'; row.id = `vtop-option-${index}`;
       row.setAttribute('role', 'option'); row.setAttribute('aria-selected', String(index === selected));
-      const icon = document.createElement('span'); icon.className = 'icon'; icon.textContent = command.action ? '◐' : '↗'; icon.setAttribute('aria-hidden', 'true');
+      const icon = document.createElement('span'); icon.className = 'icon'; icon.textContent = command.action && !command.navigate ? '◐' : '↗'; icon.setAttribute('aria-hidden', 'true');
       const text = document.createElement('div');
       const label = document.createElement('div'); label.className = 'label'; label.textContent = command.label;
       const category = document.createElement('div'); category.className = 'category'; category.textContent = command.category;
@@ -210,12 +287,12 @@
   try {
     chrome.runtime.onMessage.addListener((message, sender, respond) => {
       if (message?.type !== 'vtop-toggle-command-menu') return;
-      const tools = shadow.querySelector('.tools-dialog'); if (tools?.open) tools.close();
       const pdf = document.getElementById('vtop-pdf-preview')?.shadowRoot?.querySelector('dialog'); if (pdf?.open) pdf.close();
       dialog.open ? close() : open(); respond({ opened: dialog.open });
     });
   } catch { /* Preview without the extension runtime. */ }
   shadow.querySelector('.launcher').addEventListener('click', open);
+  host.addEventListener('vtop-command-done', close);
   shadow.querySelector('.semester-chip').addEventListener('click', showSemesterSettings);
   shadow.querySelector('.close').addEventListener('click', close);
   shadow.querySelector('.theme').addEventListener('click', toggleTheme);
@@ -225,6 +302,11 @@
     const choice = semesterChoices[Number(semesterPicker.value)];
     if (semesterPicker.value === '' || !choice) return;
     prompted = true; saveSemesterPreference(choice); close();
+  });
+  shadow.querySelector('.open-timetable').addEventListener('click', () => {
+    const route = semesterRoute(); close();
+    const element = () => discover(document).find(item => item.id === route)?.element;
+    if (globalThis.VtopPageActions) globalThis.VtopPageActions.navigate(element); else element()?.click();
   });
   shadow.querySelector('.clear-semester').addEventListener('click', () => { prompted = true; saveSemesterPreference(null); close(); });
   shadow.querySelector('.skip-semester').addEventListener('click', () => { prompted = true; showPages(); render(); input.focus(); });
@@ -240,11 +322,26 @@
     }
   });
   document.addEventListener('keydown', event => {
-    if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'k' && !event.isComposing && !event.repeat) {
-      const tools = shadow.querySelector('.tools-dialog'); if (tools?.open) tools.close();
+    if (shortcut.matches(event) && !event.isComposing && !event.repeat) {
       event.preventDefault(); event.stopImmediatePropagation(); dialog.open ? close() : open();
     }
   }, true);
+  // VTOP's mega-menus are Bootstrap collapses that stay open until their toggle is clicked again.
+  // Close them on Escape or a click elsewhere, through the page's own toggle so Bootstrap keeps its state.
+  function closeVtopMenus() {
+    for (const box of document.querySelectorAll('.hmenubox.collapse.show')) {
+      const toggles = [...document.querySelectorAll('[data-bs-toggle="collapse"][aria-controls]')].filter(toggle => toggle.getAttribute('aria-controls') === box.id);
+      (toggles.find(toggle => toggle.matches('.hmenuItem')) || toggles[0])?.click();
+    }
+  }
+  document.addEventListener('click', event => {
+    const target = event.target;
+    if (!target?.closest || target.closest('.hmenubox, [data-bs-toggle="collapse"]')) return;
+    if (document.querySelector('.hmenubox.collapse.show')) closeVtopMenus();
+  }, true);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !event.isComposing && !dialog.open && document.querySelector('.hmenubox.collapse.show')) closeVtopMenus();
+  });
   // VTOP swaps page fragments in place. Keep discovery current while the menu is open.
   let pending;
   new MutationObserver(() => {

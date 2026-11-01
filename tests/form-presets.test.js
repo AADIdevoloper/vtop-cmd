@@ -11,7 +11,7 @@ async function setup(markup=html, saved={}) {
  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
  const store=structuredClone(saved); let fail=false;
  w.chrome={storage:{local:{get:async()=>store,set:async value=>{if(fail) throw Error('storage unavailable');Object.assign(store,structuredClone(value));}}}};
- w.eval(fs.readFileSync(__dirname + '/../search-select.js','utf8'));w.eval(source);await pause();
+ for(const file of ['brand.js','combobox.js','search-select.js'])w.eval(fs.readFileSync(__dirname+'/../'+file,'utf8'));w.eval(source);await pause();
  return {dom,w,store,fail:()=>{fail=true;},ui:w.document.querySelector('#vtop-form-presets').shadowRoot,open:()=>w.document.querySelector('.vtop-form-preset-bar').shadowRoot.querySelector('button').click()};
 }
 test('editor is independent, saves local values, restores on replacement, and never submits',async()=>{
@@ -28,6 +28,11 @@ test('disabled presets survive reload, remain editable, and do not fill; cancel 
  const two=await setup(html,one.store);two.open();assert.equal(two.ui.querySelector('textarea').value,'Saved draft');assert.equal(two.ui.querySelector('.enabled').checked,false);
  two.ui.querySelector('textarea').value='Discard me';two.ui.querySelector('.cancel').click();two.open();assert.equal(two.ui.querySelector('textarea').value,'Saved draft');
  two.ui.querySelector('.enabled').checked=true;two.ui.querySelector('.save').click();await pause();assert.equal(two.w.document.querySelector('textarea').value,'Saved draft');one.dom.window.close();two.dom.window.close();
+});
+test('a click on the editor backdrop closes it without saving',async()=>{
+ const s=await setup();s.open();const dialog=s.ui.querySelector('dialog');dialog.getBoundingClientRect=()=>({left:20,right:640,top:20,bottom:600});
+ s.ui.querySelector('textarea').value='Not saved';dialog.dispatchEvent(new s.w.MouseEvent('click',{bubbles:true,clientX:300,clientY:300}));assert.equal(dialog.open,true);
+ dialog.dispatchEvent(new s.w.MouseEvent('click',{bubbles:true,clientX:700,clientY:300}));assert.equal(dialog.open,false);assert.equal(s.store.formPresets,undefined);s.dom.window.close();
 });
 test('page and form identities isolate presets, including newly discovered forms',async()=>{
  const s=await setup();s.open();s.ui.querySelector('textarea').value='Only on this page';s.ui.querySelector('.save').click();await pause();
@@ -54,7 +59,7 @@ test('preset semester and course values take precedence over existing automatic 
  const markup='<main id="b5-pagewrapper"><h2>Time Table</h2><form id="query"><select id="semesterSubId"><option value="fall">Fall Semester 2026-27</option><option value="winter">Winter Semester 2026-27</option></select><select id="courseId"><option value="c1">Course 1</option><option value="c2">Course 2</option></select></form></main>';
  const s=await setup(markup);s.open();const selects=s.ui.querySelectorAll('select');selects[0].value='winter';selects[1].value='c2';s.ui.querySelector('.save').click();await pause();
  const w=s.w;w.chrome.storage.local.get=async()=>({...s.store,defaultSemester:{value:'fall',label:'Fall Semester 2026-27'},pageFilters:{'["query","winter","courseId"]':'c1'}});
- for(const file of ['navigation.js','semesters.js','enhancements.js','content.js','enhancements-ui.js'])w.eval(fs.readFileSync(__dirname+'/../'+file,'utf8'));
+ for(const file of ['brand.js','combobox.js','navigation.js','semesters.js','enhancements.js','content.js','enhancements-ui.js'])w.eval(fs.readFileSync(__dirname+'/../'+file,'utf8'));
  await pause();assert.equal(w.document.querySelector('#semesterSubId').value,'winter');assert.equal(w.document.querySelector('#courseId').value,'c2');s.dom.window.close();
 });
 

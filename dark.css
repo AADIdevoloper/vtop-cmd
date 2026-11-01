@@ -9,10 +9,12 @@ html[data-vtop-command-dark] a:not(.btn):not(.nav-link):not(.list-group-item):no
 html[data-vtop-command-dark] :is(input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]),select,textarea,.form-control,.form-select,.input-group-text,.select2-selection,.select2-dropdown) { background-color:#101925 !important; color:#e0e6f0 !important; border-color:#465571 !important; }
 html[data-vtop-command-dark] :is(input,textarea)::placeholder { color:#99a8bd !important; opacity:1; }
 html[data-vtop-command-dark] :is(input,select,textarea):disabled { background-color:#263042 !important; color:#a9b5c7 !important; }
-html[data-vtop-command-dark] :is(.table,table) { --bs-table-bg:#182130; --bs-table-color:#e0e6f0; --bs-table-striped-bg:#202b3c; --bs-table-striped-color:#e0e6f0; --bs-table-hover-bg:#2b3c55; --bs-table-hover-color:#fff; color:#e0e6f0 !important; border-color:#354055 !important; }
+html[data-vtop-command-dark] :is(.table,table) { --bs-table-bg:#182130; --bs-table-color:#e0e6f0; --bs-table-striped-bg:#202b3c; --bs-table-striped-color:#e0e6f0; --bs-table-hover-bg:#2b3c55; --bs-table-hover-color:#fff; background-color:#182130 !important; color:#e0e6f0 !important; border-color:#354055 !important; }
 html[data-vtop-command-dark] :is(th,td) { background-color:var(--bs-table-bg,#182130) !important; color:#e0e6f0 !important; border-color:#354055 !important; }
 html[data-vtop-command-dark] :is(thead th,thead td) { background-color:#26364e !important; color:#edf2fc !important; }
 html[data-vtop-command-dark] tr:nth-child(even) > td { background-color:#1d293b !important; }
+/* Time Table marks registered slots with a cell colour; keep them distinct from free slots and headings. */
+html[data-vtop-command-dark] #timeTableStyle td[bgcolor]:not([bgcolor="#FFFFFF" i]):not([bgcolor="#e2e2e2" i]) { background-color:#2a3f6e !important; color:#f3f6ff !important; font-weight:600; box-shadow:inset 0 0 0 1px #5675c4; }
 html[data-vtop-command-dark] :is(.dropdown-item,.list-group-item-action,.hmenuItem):hover { background-color:#2d405d !important; color:#fff !important; }
 html[data-vtop-command-dark] :is(.alert-info,.bg-info) { background-color:#163849 !important; color:#b4e9ff !important; }
 html[data-vtop-command-dark] :is(.alert-warning,.bg-warning) { background-color:#463b20 !important; color:#ffe0a2 !important; }
@@ -26,4 +28,22 @@ html[data-vtop-command-dark] :is(.border,.border-top,.border-bottom,.border-star
 html[data-vtop-command-dark] #top-hmenu-bar .hmenuItem { border:0 !important; box-shadow:none !important; background-color:transparent !important; }
 html[data-vtop-command-dark] #top-hmenu-bar .hmenuItem:is(:hover,[aria-expanded="true"]) { background-color:#2d405d !important; }
 html[data-vtop-command-dark] #top-hmenu-bar .hmenuItem:focus-visible { outline:2px solid #9cbcff !important; outline-offset:2px; }
+/* Legacy and nested pages also use AdminLTE boxes and Bootstrap accordions. */
+html[data-vtop-command-dark] :is(.box,.box-body,.accordion,.accordion-item,.accordion-body,fieldset,legend,.tab-content,.tab-pane) { background-color:#182130 !important; color:#e0e6f0 !important; border-color:#354055 !important; }
+html[data-vtop-command-dark] :is(.box-header,.box-footer,.accordion-button,.accordion-button:not(.collapsed),.nav-tabs .nav-link.active,.nav-pills .nav-link.active) { background-color:#202d43 !important; color:#edf2fc !important; border-color:#465571 !important; box-shadow:none !important; }
+html[data-vtop-command-dark] :is(.text-primary,.text-info,.dropdown-header,.help-block) { color:#9cbcff !important; }
+html[data-vtop-command-dark] .text-warning { color:#ffe0a2 !important; }
+html[data-vtop-command-dark] .accordion-button::after { filter:brightness(0) invert(1); }
+html[data-vtop-command-dark] :is(.datepicker,.datepicker-dropdown,.bootstrap-datetimepicker-widget,.select2-results,.select2-search,.select2-search__field) { background-color:#182130 !important; color:#e0e6f0 !important; border-color:#465571 !important; }
+/* Applied only when measured text contrast is insufficient. Native colors return in light mode. */
+html[data-vtop-command-dark] [data-vtop-dark-surface] { background-color:#182130 !important; }
+html[data-vtop-command-dark] [data-vtop-readable="text"] { color:#edf2fc !important; }
+html[data-vtop-command-dark] [data-vtop-readable="ink"] { color:#10151f !important; }
+html[data-vtop-command-dark] [data-vtop-readable="white"] { color:#fff !important; }
+html[data-vtop-command-dark] [data-vtop-readable="black"] { color:#000 !important; }
+html[data-vtop-command-dark] [data-vtop-readable="red"] { color:#ffb4c1 !important; }
+html[data-vtop-command-dark] [data-vtop-readable="green"] { color:#98e6b5 !important; }
+html[data-vtop-command-dark] [data-vtop-readable="blue"] { color:#aecbff !important; }
+html[data-vtop-command-dark] [data-vtop-readable="amber"] { color:#ffe0a2 !important; }
+html[data-vtop-command-dark] [data-vtop-readable="purple"] { color:#dfbaff !important; }
 @media print { html[data-vtop-command-dark] { color-scheme:light; } #vtop-command-root { display:none !important; } }

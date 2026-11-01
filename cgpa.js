@@ -23,7 +23,7 @@
       const labels = [...header.cells].map(cell => heading(cellText(cell)));
       const index = pattern => labels.findIndex(label => pattern.test(label));
       const code = index(/^(coursecode|course)$/), name = index(/^(coursetitle|coursename)$/), credit = index(/^(credits?|c|ltpj?c)$/);
-      const grade = index(/^(grade|lettergrade)$/), semester = index(/^(semester|sem|term|exammonth|exammonthyear|monthyear)$/), type = index(/^(coursetype|type)$/), category = index(/^(category|coursecategory)$/);
+      const grade = index(/^(grade|lettergrade)$/), semester = index(/^(semester|sem|term|exammonth|exammonthyear|monthyear)$/), type = index(/^(coursetype|type)$/), category = index(/^(category|coursecategory|coursedistribution|distribution)$/);
       if (history && grade < 0) continue;
       for (const row of rows.slice(rows.indexOf(header) + 1)) {
         const cells = [...row.cells].map(cellText);
@@ -56,6 +56,24 @@
       return sum;
     }, { credits: 0, points: 0 });
   }
+  // Grade History's CGPA Details table: VTOP's own CGPA, the reference the projection must agree with.
+  function official(doc) {
+    for (const table of doc.querySelectorAll('table')) {
+      const rows = [...table.rows], header = rows.findIndex(row => [...row.cells].some(cell => heading(cellText(cell)) === 'cgpa'));
+      if (header < 0 || !rows[header + 1]) continue;
+      const labels = [...rows[header].cells].map(cell => heading(cellText(cell))), cells = [...rows[header + 1].cells].map(cellText);
+      const cgpa = Number(cells[labels.indexOf('cgpa')]), earned = Number(cells[labels.indexOf('creditsearned')]);
+      if (Number.isFinite(cgpa) && cgpa > 0 && cgpa <= 10) return { cgpa, creditsEarned: Number.isFinite(earned) ? earned : null };
+    }
+    return null;
+  }
+  // Past grade points for the projection. The recomputed total is exact; if it disagrees with VTOP's
+  // published CGPA beyond rounding (a grading rule we cannot see), VTOP's figure wins.
+  function previous(history, reference) {
+    const past = totals(history);
+    if (!reference || !past.credits || Math.abs(past.points / past.credits - reference.cgpa) < 0.005) return past;
+    return { credits: past.credits, points: reference.cgpa * past.credits };
+  }
   // Only grade choices survive reloads. Ignore retired scenario fields and plans.
   function validatePredictions(value) {
     const result = Object.create(null);
@@ -67,7 +85,7 @@
     }
     return result;
   }
-  const api = { points, courses, totals, validatePredictions };
+  const api = { points, courses, totals, official, previous, validatePredictions };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.VtopCgpa = api;
 })(globalThis);
