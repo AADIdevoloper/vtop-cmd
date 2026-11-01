@@ -29,7 +29,11 @@
     select.before(host);
     const state = {host,shadow,children:snapshot(select),expected:[...select.options],showAll:false};
     courseHosts.set(host,select);
-    shadow.querySelector('.default').addEventListener('click',()=>{state.showAll=false;filterCourses(select,state);});
+    shadow.querySelector('.default').addEventListener('click',()=>{
+      // With no default yet, the button opens the launcher's semester picker instead of doing nothing.
+      if(!preference?.label){document.getElementById('vtop-command-root')?.dispatchEvent(new CustomEvent('vtop-choose-semester'));return;}
+      state.showAll=false;filterCourses(select,state);
+    });
     shadow.querySelector('.all').addEventListener('click',()=>{state.showAll=true;filterCourses(select,state);});
     return state;
   }
@@ -49,11 +53,11 @@
     else { const placeholder=[...select.options].find(option=>!isTerm(option)); select.selectedIndex=placeholder?placeholder.index:-1; }
     state.expected=[...select.options];
     select.dataset.vtopSemesterScope=all?'all':target;
-    state.shadow.querySelector('.default').disabled=!target;
+    state.shadow.querySelector('.default').title=target?'':'Choose a default semester';
     state.shadow.querySelector('.default').setAttribute('aria-pressed',String(!all));
     state.shadow.querySelector('.all').setAttribute('aria-pressed',String(all));
     const count=original.filter(option=>isTerm(option)&&(all||optionTerm(option)===target)).length;
-    const message=all ? `${count} courses across all semesters.${target?'':' Choose a default semester in the launcher to filter them.'}` :
+    const message=all ? `${count} courses across all semesters.${target?'':' Choose Default semester to pick one and filter them.'}` :
       count ? `${count} ${count===1?'course':'courses'} · ${preference.label}` : `No courses for ${preference.label}. Choose All semesters to browse other terms.`;
     const status=state.shadow.querySelector('p');if(status.textContent!==message)status.textContent=message;
     if(select.value!==currentValue){

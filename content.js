@@ -297,6 +297,7 @@
   shadow.querySelector('.launcher').addEventListener('click', open);
   host.addEventListener('vtop-command-done', close);
   shadow.querySelector('.semester-chip').addEventListener('click', showSemesterSettings);
+  host.addEventListener('vtop-choose-semester', showSemesterSettings);
   shadow.querySelector('.close').addEventListener('click', close);
   shadow.querySelector('.theme').addEventListener('click', toggleTheme);
   shadow.querySelector('.semester-button').addEventListener('click', showSemesterSettings);

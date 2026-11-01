@@ -143,7 +143,8 @@ test('Course Page defaults to saved semester, toggles all/default with original 
  assert.equal(w.document.querySelectorAll('.vtop-course-scope').length,1);dom.window.close();
 });
 test('no default shows all terms; unavailable default reports empty results and lets user show all',async()=>{
- const none=setup(registeredCourses);await pause();assert.equal(none.w.document.querySelector('#courseId').options.length,5);assert.equal(none.w.document.querySelector('.vtop-course-scope').shadowRoot.querySelector('.default').disabled,true);none.dom.window.close();
+ const none=setup(registeredCourses);await pause();assert.equal(none.w.document.querySelector('#courseId').options.length,5);const choose=none.w.document.querySelector('.vtop-course-scope').shadowRoot.querySelector('.default');assert.equal(choose.disabled,false);
+ choose.click();const menu=none.w.document.querySelector('#vtop-command-root').shadowRoot;assert.equal(menu.querySelector('dialog').open,true);assert.equal(menu.querySelector('.semester-settings').hidden,false);none.dom.window.close();
  const missing=setup(registeredCourses,{defaultSemester:{value:'other',label:'Summer Semester 2026-27'}});await pause();
  const shadow=missing.w.document.querySelector('.vtop-course-scope').shadowRoot;assert.match(shadow.querySelector('p').textContent,/No courses for Summer/);assert.equal(missing.w.document.querySelector('#courseId').options.length,1);shadow.querySelector('.all').click();assert.equal(missing.w.document.querySelector('#courseId').options.length,5);missing.dom.window.close();
 });
