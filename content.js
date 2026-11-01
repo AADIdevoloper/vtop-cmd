@@ -154,7 +154,7 @@
       if (choices.length) rememberSemesters(choices, { fresh: true });
       if (!choices.length || semesters.transactional(select)) continue;
       pageHasSemesters = true;
-      if (!defaultSemester) continue;
+      if (!defaultSemester || globalThis.VtopFormPresets?.owns(select)) continue;
       const signature = JSON.stringify(choices);
       if (appliedSemesters.get(select) === signature) continue;
       const choice = semesters.match(select, defaultSemester);

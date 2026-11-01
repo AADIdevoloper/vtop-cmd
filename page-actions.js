@@ -9,7 +9,7 @@
     if(bridged()&&blocked()){schedule();return;}
     const task=queue.shift(),element=task.resolve();
     if(!element?.isConnected){task.done(false);schedule();return;}
-    if(task.kind==='change'&&element.value===task.value){task.done(true);schedule();return;}
+    if(task.kind==='change'&&!task.force&&element.value===task.value){task.done(true);schedule();return;}
     if(!bridged()){
       if(task.kind==='change'){element.value=task.value;element.dispatchEvent(new Event('change',{bubbles:true}));}else element.click();
       task.done(true);schedule();return;
@@ -24,14 +24,14 @@
     if(message.status==='busy')queue.unshift(task);else task.done(message.status==='done');
     schedule();
   });
-  function change(element,value){
+  function change(element,value,{force=false}={}){
     // Unbridged previews/tests retain native synchronous behavior.
     if(!bridged()){element.value=value;element.dispatchEvent(new Event('change',{bubbles:true}));return Promise.resolve(true);}
     if(current?.element===element&&current.value===value)return current.promise;
     const existing=queue.find(task=>task.element===element);
-    if(existing){existing.value=value;return existing.promise;}
+    if(existing){existing.value=value;existing.force=force;return existing.promise;}
     let done;const promise=new Promise(resolve=>{done=resolve;});
-    queue.push({kind:'change',element,value,resolve:()=>element,done,promise});schedule();return promise;
+    queue.push({kind:'change',element,value,force,resolve:()=>element,done,promise});schedule();return promise;
   }
   function navigate(resolve){
     // Navigation takes priority over pending automatic changes on the old page.

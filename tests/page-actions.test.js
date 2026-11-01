@@ -66,3 +66,7 @@ test('automatic selection waits for fetch response bodies, not just response hea
  const action=page.VtopPageActions.change(select,'S1');await pause(150);assert.equal(changes,0);
  bodyController.enqueue(new TextEncoder().encode('loaded'));bodyController.close();await response.text();assert.equal(await action,true);assert.equal(changes,1);other.window.close();
 });
+test('forced lookup reruns an unchanged parent; known form dates run change handlers without submitting',async()=>{
+ const {dom,w}=setup();const select=w.document.querySelector('select');let changes=0,submits=0;select.value='S1';select.addEventListener('change',()=>changes++);assert.equal(await w.VtopPageActions.change(select,'S1'),true);assert.equal(changes,0);assert.equal(await w.VtopPageActions.change(select,'S1',{force:true}),true);assert.equal(changes,1);
+ w.document.querySelector('main').insertAdjacentHTML('beforeend','<form id="LateHourRequestForm"><input type="date" id="lateHourFromDate"><button type="submit">Submit</button></form><form id="other"><input type="date"></form>');w.document.addEventListener('submit',e=>{e.preventDefault();submits++;});let dateChanges=0;const date=w.document.querySelector('#lateHourFromDate');date.addEventListener('change',()=>dateChanges++);assert.equal(await w.VtopPageActions.change(date,'2026-11-03'),true);assert.equal(dateChanges,1);assert.equal(date.value,'2026-11-03');assert.equal(await w.VtopPageActions.change(w.document.querySelector('#other input'),'2026-11-03'),false);assert.equal(submits,0);dom.window.close();
+});
