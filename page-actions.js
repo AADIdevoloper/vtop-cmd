@@ -36,8 +36,10 @@
   function navigate(resolve){
     // Navigation takes priority over pending automatic changes on the old page.
     for(const task of queue)task.done(false);queue=[];
-    if(!bridged()){resolve()?.click();return;}
-    queue.push({kind:'click',resolve,done:()=>{}});schedule();
+    if(!bridged()){const element=resolve();element?.click();return Promise.resolve(!!element);}
+    // Multi-page tools can await the MAIN-world result before reading the new page.
+    let done;const promise=new Promise(finish=>{done=finish;});
+    queue.push({kind:'click',resolve,done});schedule();return promise;
   }
   globalThis.VtopPageActions={change,navigate};
 })();

@@ -35,6 +35,26 @@ The calculators read only loaded or fetched page data and keep it in memory. Unk
 
 VTOP's top mega-menus close on **Esc** or a click outside them. **Home** in the command menu opens VTOP's home page through its own header link.
 
+## CGPA calculator
+
+Open Cmd+K / Ctrl+K and choose **CGPA calculator**. The command window expands,
+loads Grade History through VTOP's navigation, then loads Time Table behind the
+window. The saved default semester is used when available. You can switch the
+semester inside the calculator.
+
+Previous semester GPAs appear in horizontally scrolling tiles. Current courses
+start at S, with **− S +** controls: minus lowers the grade (S → A → B → C → D → E → F),
+and plus raises it. Matching grade predictions are remembered locally per semester
+and course. Credits come directly from VTOP; course credits and historical results
+are not editable.
+
+NGCR / Non-graded Core Requirement courses remain visible as non-graded and are
+excluded from SGPA and CGPA. S/A/B/C/D/E/F map to 10/9/8/7/6/5/0. F contributes
+credits with zero grade points. Unknown grades and zero-credit courses are excluded.
+Calculations use unrounded points and credits, rounding only the displayed GPA.
+
+Repeat-course, replacement, and special grading rules still need refinement. Nothing is submitted to your academic record.
+
 ## PDF viewer
 
 Supported VTOP download links now open PDFs in an in-page viewer. Scroll continuously through all pages with your mouse wheel, trackpad, or keyboard. Previous/Next and page numbers jump to pages in the same scrollable document. Zoom with **⌘/Ctrl + scroll**, a trackpad pinch, **⌘/Ctrl + +/−**, or the toolbar; zoom keeps the point under the pointer in place, and **⌘/Ctrl + 0** or **Fit width** fits the page again. The preview uses the command menu's look and follows its light/dark setting; **Esc** closes it and **⌘K/Ctrl+K** jumps to the menu even while the PDF has focus. Pages render near the viewport and release distant canvases to limit memory use. **Download** saves the original PDF when you choose; **Close** returns to VTOP. Password-protected PDFs prompt inside the viewer.
@@ -76,6 +96,8 @@ Automated tests and local browser previews do not replace testing the installed 
 - `navigation.js`: menu discovery, categories, aliases, and search ranking.
 - `semesters.js`: semester dropdown discovery and matching across page labels.
 - `content.js`: isolated Shadow DOM command palette, semester chip, preferences, and automatic semester selection.
+- `cgpa.js`: Grade History and Time Table course readers and SGPA/CGPA maths.
+- `cgpa-ui.js`: CGPA calculator inside the command window.
 - `enhancements.js`: attendance/deadline calculations, table readers, and filter identification.
 - `enhancements-ui.js`: local filter restoration and its command-menu controls.
 - `page-runtime.js`: native request tracking and page-handler coordination.
