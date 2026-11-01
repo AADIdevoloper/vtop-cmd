@@ -59,7 +59,7 @@
   function restoreFilters() {
     if(!ready || !remember) return;
     for(const select of document.querySelectorAll('select')) {
-      if(!select.isConnected) continue;
+      if(!select.isConnected || globalThis.VtopFormPresets?.owns(select)) continue;
       const key=api.filterKey(select,document); if(!key) continue;
       const signature=JSON.stringify([key,[...select.options].map(option=>[option.value,option.disabled])]);
       if(applied.get(select)===signature) continue;
@@ -73,7 +73,7 @@
   }
   document.addEventListener('change',event=>{
     const select=event.target;
-    if(restoring || event.vtopCourseScopeChange || !ready || !remember || !(select instanceof HTMLSelectElement)) return;
+    if(globalThis.VtopFormPresets?.owns(select) || restoring || event.vtopCourseScopeChange || !ready || !remember || !(select instanceof HTMLSelectElement)) return;
     const key=api.filterKey(select,document); if(!key) return;
     // Only dropdown values are saved, never page contents or free-text fields.
     saved[key]=select.value;
