@@ -245,3 +245,14 @@ test('an open VTOP mega-menu closes on Escape or a click outside it, but not on 
   click(d.querySelector('main h1'));assert.equal(toggles,4);click(d.querySelector('main h1'));assert.equal(toggles,4,'nothing to close');
   dom.window.close();
 });
+test('automatic semester selection never touches registration, application or payment pages', async () => {
+  for (const heading of ['Course Registration','Re-Exam Application','Fee Payment']) {
+    const {dom,w,shadow}=setup({html:`<main id="b5-pagewrapper"><h3>${heading}</h3>${semesterHTML}</main>`,savedSemester});
+    const select=w.document.querySelector('select');let changes=0;select.addEventListener('change',()=>changes++);await flush();await pause();
+    assert.equal(select.value,'',heading);assert.equal(changes,0,heading);dom.window.close();
+    const fresh=setup({html:`<main id="b5-pagewrapper"><h3>${heading}</h3>${semesterHTML}</main>`});await flush();
+    assert.equal(fresh.shadow.querySelector('dialog').open,false,`no first-run prompt on ${heading}`);fresh.dom.window.close();
+  }
+  const ok=setup({html:`<main id="b5-pagewrapper"><h3>Time Table</h3>${semesterHTML}</main>`,savedSemester});await flush();
+  assert.equal(ok.w.document.querySelector('select').value,savedSemester.value);ok.dom.window.close();
+});

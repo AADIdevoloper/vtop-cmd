@@ -136,6 +136,8 @@
     return true;
   }
   // Catch-all for location.href/assign, native form submissions and downloads the hooks above cannot see.
+  // Strictly read-only: a POST is only taken over for an explicit download endpoint and is never replayed,
+  // so VTOP never receives a request twice; only GET navigations fall back to the native page.
   window.navigation?.addEventListener?.('navigate',event => {
     if (bypassClick || !event.cancelable || event.hashChange || ['reload','traverse'].includes(event.navigationType)) return;
     const url = event.destination?.url;
@@ -143,16 +145,12 @@
     const isDownload = event.downloadRequest != null;
     const isBlob = url.startsWith(`blob:${location.origin}/`) && (isDownload || pdfBlobs.has(url));
     const isDataPdf = /^data:application\/pdf(?:[;,])/i.test(url);
-    if (!candidate(url) && !isBlob && !isDataPdf && !(localURL(url) && (isDownload || pendingDownload()))) return;
-    event.preventDefault();
     const fields = event.formData;
-    // A page that merely looks like a download is replayed natively instead of being shown as an error.
-    preview(url,fields ? {method:'POST',body:fields} : undefined,event.downloadRequest || undefined,() => {
-      nativeURLs.add(url); setTimeout(() => nativeURLs.delete(url),10000);
-      if (!fields) { location.assign(url); return; }
-      const form = document.createElement('form'); form.method = 'post'; form.action = url; form.hidden = true;
-      for (const [name,value] of fields) { const input = document.createElement('input'); input.type = 'hidden'; input.name = name; input.value = value; form.append(input); }
-      document.documentElement.append(form); originalSubmit.call(form); form.remove();
+    if (fields ? !candidate(url) : !candidate(url) && !isBlob && !isDataPdf && !(localURL(url) && (isDownload || pendingDownload()))) return;
+    event.preventDefault();
+    preview(url,fields ? {method:'POST',body:fields} : undefined,event.downloadRequest || undefined,fields ? undefined : () => {
+      // A GET that merely looks like a download is opened natively instead of being shown as an error.
+      nativeURLs.add(url); setTimeout(() => nativeURLs.delete(url),10000); location.assign(url);
     });
   });
   HTMLFormElement.prototype.submit = function (...args) { if (!handleForm(this)) return originalSubmit.apply(this,args); };

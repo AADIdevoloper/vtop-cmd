@@ -121,7 +121,26 @@
     :host-context(html[data-vtop-command-dark]) :is(.overdue,.overdue .badge){color:#ff8f96}:host-context(html[data-vtop-command-dark]) :is(.done,.done .badge){color:#83d9ae}
     :host-context(html[data-vtop-command-dark]) li:is(.pending,.soon,.overdue,.done){color:inherit}
     :host-context(html[data-vtop-command-dark]) .chip::after{background:#edf1fa;color:#182438}`;
-  const CACHE_MS=5*60000, deadlineCache=new Map(), deadlineStates=new WeakMap(), dueStates=new WeakMap(), liveBadges=new Set();
+  const deadlineCache=new Map(), deadlineStates=new WeakMap(), dueStates=new WeakMap(), liveBadges=new Set();
+  // Each course's dashboard is reused for a random 1–5 hours, so refreshes never line up and VTOP sees far
+  // fewer requests. Entries live in chrome.storage.session (memory only, cleared when Chrome closes), never on disk.
+  const MIN_CACHE=60*60000, MAX_CACHE=5*60*60000, cacheLifetime=()=>MIN_CACHE+Math.random()*(MAX_CACHE-MIN_CACHE);
+  const sessionArea=(()=>{try{return chrome.storage.session||null;}catch{return null;}})();
+  const cacheReady=(async()=>{
+    try{
+      const saved=(await sessionArea?.get('deadlineCache'))?.deadlineCache;
+      for(const [classId,entry] of Object.entries(saved&&typeof saved==='object'?saved:{}))
+        if(Array.isArray(entry?.records)&&entry.expires>Date.now()&&!deadlineCache.has(classId))deadlineCache.set(classId,{status:'done',records:entry.records,expires:entry.expires});
+    }catch{/* No session access: this page's memory only. */}
+  })();
+  function persistDeadlines(){
+    if(!sessionArea)return;
+    const now=Date.now(),entries={};
+    for(const [classId,entry] of deadlineCache)if(entry.status==='done'&&entry.expires>now)entries[classId]={records:entry.records,expires:entry.expires};
+    try{sessionArea.set({deadlineCache:entries})?.catch(()=>{});}catch{/* Extension reloaded. */}
+  }
+  function storeDeadlines(classId,records){deadlineCache.set(classId,{status:'done',records,expires:Date.now()+cacheLifetime()});persistDeadlines();}
+  const freshDeadlines=classId=>{const entry=deadlineCache.get(classId);return entry?.status==='done'&&entry.expires>Date.now()?entry:null;};
   let deadlineQueue=[], deadlineController=null, deadlineRunning=false;
   const istDate=(time,dateOnly)=>new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',...(dateOnly?{}:{hour:'numeric',minute:'2-digit'})}).format(time);
   function badgeHost(cell,className){
@@ -159,24 +178,49 @@
       headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({_csrf:csrf,classId,authorizedID:id,x:new Date().toUTCString()})});
     const html=response.ok?await response.text():'';
     if(!html||html.includes('___INTERNAL___RESPONSE___'))throw new Error('Unavailable');
-    return api.assignmentRows(new DOMParser().parseFromString(html,'text/html')).map(({title,label,time,dateOnly,submitted})=>({title:title||label,time,dateOnly,submitted}));
+    return summarise(api.assignmentRows(new DOMParser().parseFromString(html,'text/html')));
+  }
+  const summarise=records=>records.map(({title,label,time,dateOnly,submitted})=>({title:title||label,time,dateOnly,submitted}));
+  // The open dashboard's own Class Number, so what you see there refreshes the cache (e.g. right after an upload).
+  function dashboardClassId(){
+    for(const table of document.querySelectorAll('table')){
+      const rows=[...table.rows],headers=rows[0]?[...rows[0].cells].map(cell=>clean(cell.textContent)):[];
+      const index=headers.findIndex(text=>/^class (?:number|nbr)$/i.test(text));
+      if(index<0||headers.some(text=>/dashboard/i.test(text)))continue;
+      const value=clean(rows[1]?.cells[index]?.textContent);if(/^[A-Z]{2}\d{6,}$/.test(value))return value;
+    }
+    return null;
   }
   async function pumpDeadlines(){
     if(deadlineRunning)return;deadlineRunning=true;
     try{
+      await cacheReady;
       while(deadlineQueue.length){
         const {classId,state}=deadlineQueue.shift();if(!state.host.isConnected)continue;
-        const cached=deadlineCache.get(classId);
-        if(cached?.status==='done'&&Date.now()-cached.at<CACHE_MS){renderDeadlines(state);continue;}
+        if(freshDeadlines(classId)){renderDeadlines(state);continue;}
         deadlineCache.set(classId,{status:'loading'});renderDeadlines(state);
         deadlineController=new AbortController();
-        try{deadlineCache.set(classId,{status:'done',records:await loadDeadlines(classId,deadlineController.signal),at:Date.now()});}
+        try{storeDeadlines(classId,await loadDeadlines(classId,deadlineController.signal));}
         catch(error){if(error?.name==='AbortError'){deadlineCache.delete(classId);break;}deadlineCache.set(classId,{status:'error'});}
         if(state.host.isConnected)renderDeadlines(state);
       }
     }finally{deadlineRunning=false;deadlineController=null;}
   }
   function stopDeadlines(){deadlineQueue=[];deadlineController?.abort();}
+  // An upload changes what is pending. Forget that course (so the list asks VTOP again) and stop re-caching
+  // this dashboard view, which may still show the pre-upload state until VTOP refreshes it.
+  let uploadedClass=null;
+  function forgetDeadlines(control){
+    const classId=control?.closest?.('form')?.querySelector('input[name="classIdNumber"],input[name="classId1"]')?.value||dashboardClassId();
+    if(!classId)return;uploadedClass=classId;
+    cacheReady.then(()=>{if(deadlineCache.delete(classId))persistDeadlines();});
+  }
+  document.addEventListener('change',event=>{if(event.target?.matches?.('input[type=file]'))forgetDeadlines(event.target);},true);
+  document.addEventListener('submit',event=>{if(event.target?.querySelector?.('input[type=file]'))forgetDeadlines(event.target);},true);
+  document.addEventListener('click',event=>{
+    const control=event.target.closest?.('button,input[type=button],input[type=submit],a');
+    if(control&&dashboardClassId()&&/upload|submit|save/i.test(`${control.id} ${control.getAttribute('name')||''} ${control.textContent} ${control.value||''} ${control.getAttribute('class')||''}`))forgetDeadlines(control);
+  },true);
   // Opening a course hands the page back to VTOP; never race its own dashboard request.
   document.addEventListener('click',event=>{if(event.target.closest?.('[onclick*="myFunction"]'))stopDeadlines();},true);
   function scanDeadlines(){
@@ -196,7 +240,13 @@
       deadlineQueue.push({classId:course.classId,state});
     }
     if(courses.length)pumpDeadlines();
-    for(const record of api.assignmentRows(document)){
+    const dashboardRecords=api.assignmentRows(document),openClass=dashboardClassId();
+    if(openClass!==uploadedClass)uploadedClass=null;
+    if(openClass&&openClass!==uploadedClass&&[...document.querySelectorAll('td,th')].some(cell=>/^due date$/i.test(clean(cell.textContent)))){
+      const fresh=summarise(dashboardRecords);
+      cacheReady.then(()=>{if(JSON.stringify(fresh)!==JSON.stringify(freshDeadlines(openClass)?.records))storeDeadlines(openClass,fresh);});
+    }
+    for(const record of dashboardRecords){
       if(!record.dueCell||!record.row)continue;
       let state=dueStates.get(record.row);
       // VTOP's Last Updated On column already shows submissions; countdowns are for pending work only.

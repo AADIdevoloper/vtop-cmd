@@ -130,7 +130,7 @@
     const form = select.closest('form');
     const heading = clean(container.querySelector('h1,h2,h3,h4,h5,h6,.card-header,.panel-title')?.textContent);
     const page = form?.id || form?.getAttribute('name') || heading;
-    if (/registration|payment|refund|password|leave request|withdraw|enroll|application|booking|mess|profile|bank/i.test(`${page} ${heading}`)) return null;
+    if (/registration|payment|refund|password|leave request|withdraw|enroll|application|apply|booking|mess|profile|bank|feedback|re-?exam/i.test(`${page} ${heading}`)) return null;
     const field = select.id || select.name;
     if (!page || !field) return null;
     const semester = [...doc.querySelectorAll('select')].filter(s=>/semester/i.test(`${s.id} ${s.name}`)).map(s => s.value).filter(Boolean).join('|') || select.dataset.vtopSemesterScope || '';

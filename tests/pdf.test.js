@@ -125,12 +125,12 @@ test('Navigation API catches location-style downloads and POST navigations, leav
  const page=navigate(w,'/vtop/academics/home');const external=navigate(w,'https://example.com/file.pdf');const back=navigate(w,'/vtop/download/x',{navigationType:'traverse'});
  assert.equal(page.defaultPrevented,false);assert.equal(external.defaultPrevented,false);assert.equal(back.defaultPrevented,false);assert.equal(calls.length,2);dom.window.close();
 });
-test('Navigation API replays a download-looking HTML page natively and never touches file uploads',async()=>{
+test('Navigation API is read-only: a POST is sent once and never replayed, and file uploads are never touched',async()=>{
  const {dom,w,calls,messages}=bridge({navigation:true,body:'<html>Report</html>',type:'text/html'});
  const fields=new w.FormData();fields.append('report','7');
  navigate(w,'/vtop/download/report',{formData:fields});await pause();
- assert.ok(messages.some(m=>m.kind==='not-pdf'));assert.ok(!messages.some(m=>m.kind==='error'));assert.equal(calls.at(-1).native,true);
- const count=calls.length;navigate(w,'/vtop/download/report',{formData:fields});assert.equal(calls.length,count,'replayed navigation is not intercepted again');
+ assert.equal(calls.length,1);assert.equal(calls[0].init.method,'POST');assert.ok(!calls.some(call=>call.native),'POST never replayed');assert.ok(messages.some(m=>m.kind==='error'));
+ const intent=navigate(w,'/vtop/academics/saveSomething',{formData:fields});assert.equal(intent.defaultPrevented,false,'POST to a non-download endpoint stays native');assert.equal(calls.length,1);
  const upload=new w.FormData();upload.append('file',new w.File(['x'],'x.pdf'));
  assert.equal(navigate(w,'/vtop/download/upload',{formData:upload}).defaultPrevented,false);dom.window.close();
 });

@@ -26,7 +26,7 @@ The **Course Page** registered-course dropdown shows only courses from the saved
 The floating launcher is a small pill with the logo, your platform's shortcut, and the default **semester**. Attendance and assignment details appear directly in VTOP's own tables.
 
 - **Attendance calculator:** open Attendance and load a semester. Each course row shows classes needed to reach 75%, or classes you can miss while staying at or above 75%, under the attendance percentage. The target is fixed at 75%. Estimates assume equally weighted future classes.
-- **Assignment deadlines:** on **Digital Assignment Upload**, a **Pending** column (just before Dashboard) shows each unsubmitted assignment as a date chip, earliest first, coloured by urgency (overdue, due within two days, later). Hover or focus a chip to see the assignment and its countdown. Submitted assignments (a file has been uploaded) are hidden; a course with nothing left shows a dash. The extension reads each course's dashboard with the same read-only request VTOP's Dashboard button sends, one course at a time, and stops as soon as you open a dashboard yourself. Inside a dashboard, each pending due date shows its countdown. Deadlines use IST; date-only dates assume the end of the day. Nothing is stored; results are kept in memory for five minutes.
+- **Assignment deadlines:** on **Digital Assignment Upload**, a **Pending** column (just before Dashboard) shows each unsubmitted assignment as a date chip, earliest first, coloured by urgency (overdue, due within two days, later). Hover or focus a chip to see the assignment and its countdown. Submitted assignments (a file has been uploaded) are hidden; a course with nothing left shows a dash. The extension reads each course's dashboard with the same read-only request VTOP's Dashboard button sends, one course at a time, and stops as soon as you open a dashboard yourself. Inside a dashboard, each pending due date shows its countdown. Deadlines use IST; date-only dates assume the end of the day. Each course's result is reused for a random 1–5 hours, so VTOP sees far fewer requests and refreshes don't line up. The cache lives in Chrome's session storage (memory only, cleared when Chrome closes) and is never written to disk. Opening a course's dashboard refreshes that course, and picking a file, submitting or clicking Upload on a dashboard forgets it so the next list view asks VTOP again.
 - **Remember filters:** enabled by default for identified course/exam query dropdowns, scoped by page and selected semester. Existing native change handlers load the results. Transactional forms, free-text fields, and unrelated dropdowns are excluded. Use **Turn off filter memory** or **Forget saved page filters** in the command menu.
 
 The calculators read only loaded or fetched page data and keep it in memory. Unknown date formats are ignored rather than guessed.
@@ -70,6 +70,10 @@ Automatic semester and remembered-filter changes wait for native page requests t
 ## Logo and toolbar
 
 VTOP Command uses an original V-shaped navigation-arrow logo. Pin the extension in Chrome and click its icon to open the command menu. On other sites, the toolbar icon opens VTOP in a new tab. The logo is also shown in the floating launcher and menu header.
+
+## Read-only by design
+
+The extension never writes to VTOP or your academic record. It reads pages with the same requests VTOP's own menu and buttons send (Time Table and course dashboards), clicks only menu links, the home link and menu toggles, and changes only dropdowns that load a view. Automatic semester selection and filter memory skip registration, application, payment, feedback and similar pages. PDF previews replace the browser's own download request (sent once, never replayed); a POST is only taken over for an explicit download endpoint. File uploads, form inputs and submit buttons are never touched.
 
 ## Behavior and privacy
 

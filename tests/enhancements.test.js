@@ -6,11 +6,12 @@ const api=require('../enhancements');
 const root=__dirname+'/../';
 const semester='<select id="semesterSubId"><option value="S1">Fall Semester 2026-27</option></select>';
 const course='<select id="courseId"><option value="">Choose course</option><option value="C1">Course A</option><option value="C2">Course B</option></select>';
-function setup(html,settings={},fetch){
+function setup(html,settings={},fetch,session){
  const dom=new JSDOM(html,{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window,writes=[];
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
- w.chrome={storage:{local:{get:async()=>({defaultSemester:null,...settings}),set:async v=>writes.push(JSON.parse(JSON.stringify(v)))},onChanged:{addListener(){}}}};
+ w.chrome={storage:{local:{get:async()=>({defaultSemester:null,...settings}),set:async v=>writes.push(JSON.parse(JSON.stringify(v)))},onChanged:{addListener(){}},
+  ...(session?{session:{get:async()=>JSON.parse(JSON.stringify(session.data)),set:async v=>{Object.assign(session.data,JSON.parse(JSON.stringify(v)));session.writes.push(JSON.parse(JSON.stringify(v)));}}}:{})}};
  if(fetch)w.fetch=fetch;
  for(const file of ['brand.js','navigation.js','semesters.js','enhancements.js','content.js','page-enhancements.js','enhancements-ui.js'])w.eval(fs.readFileSync(root+file,'utf8'));
  return{dom,w,writes,shadow:w.document.querySelector('#vtop-command-root').shadowRoot};
@@ -172,4 +173,48 @@ test('semester-prefixed course labels support unnamed course controls and restor
  const {dom,w}=setup(html,{defaultSemester:defaultFall});await pause();const select=w.document.querySelector('select');
  assert.deepEqual([...select.options].map(o=>o.value),['','F']);assert.equal(select.querySelectorAll('optgroup').length,1);
  w.document.querySelector('.vtop-course-scope').shadowRoot.querySelector('.all').click();assert.deepEqual([...select.options].map(o=>o.value),['','F','W']);assert.equal(select.querySelectorAll('optgroup').length,2);dom.window.close();
+});
+test('dashboards are cached in memory-only session storage for a random 1–5 hours, surviving page reloads',async()=>{
+ const session={data:{},writes:[]},calls=[];
+ const fetch=async(url,init)=>{calls.push(init.body.get('classId'));return{ok:true,text:async()=>dashboardHTML([['Case Study - I','24-Oct-2099','']])};};
+ const before=Date.now();const first=setup(courseList(['A1','B2']),{},fetch,session);await pause();await pause();
+ assert.deepEqual(calls,['A1','B2']);const saved=session.data.deadlineCache;assert.deepEqual(Object.keys(saved),['A1','B2']);
+ for(const entry of Object.values(saved)){const life=entry.expires-before;assert.ok(life>=60*60000-1000&&life<=5*60*60000+1000,`lifetime ${life}`);}
+ assert.equal(first.writes.filter(write=>JSON.stringify(write).includes('Case Study')).length,0,'never written to disk storage');first.dom.window.close();
+ // A reload within the window reuses the cache without asking VTOP again.
+ const second=setup(courseList(['A1','B2']),{},fetch,session);await pause();await pause();
+ assert.deepEqual(calls,['A1','B2']);assert.match(second.w.document.querySelector('.vtop-course-deadlines').shadowRoot.querySelector('.chip').dataset.tip,/Case Study - I/);second.dom.window.close();
+ // Expired entries are fetched again; others stay cached.
+ session.data.deadlineCache.A1.expires=Date.now()-1;
+ const third=setup(courseList(['A1','B2']),{},fetch,session);await pause();await pause();assert.deepEqual(calls,['A1','B2','A1']);third.dom.window.close();
+});
+test('random cache lifetimes differ between courses so refreshes do not line up',async()=>{
+ const session={data:{},writes:[]},ids=['A1','B2','C3','D4','E5','F6'];
+ const {dom}=setup(courseList(ids),{},async()=>({ok:true,text:async()=>dashboardHTML([])}),session);
+ for(let i=0;i<6;i++)await pause();
+ const expiries=Object.values(session.data.deadlineCache).map(entry=>entry.expires);
+ assert.equal(expiries.length,ids.length);assert.ok(new Set(expiries.map(time=>Math.round(time/60000))).size>1);dom.window.close();
+});
+test('opening a dashboard refreshes that course in the cache, so a new upload shows up immediately',async()=>{
+ const session={data:{deadlineCache:{VL2026270102272:{records:[{title:'Case Study - I',time:Date.parse('2099-10-24T23:59:59+05:30'),dateOnly:true,submitted:false}],expires:Date.now()+3*3600000}}},writes:[]};
+ const html=`<main id="b5-pagewrapper">${dashboardHTML([['Case Study - I','24-Oct-2099','02 Nov 2026 09:00 AM']]).replace('<td>Course Title</td></tr>','<td>Course Title</td><td>Class Number</td></tr>').replace('<td>Y</td></tr>','<td>Y</td><td>VL2026270102272</td></tr>')}</main>`;
+ const {dom}=setup(html,{},async()=>{throw new Error('no fetch expected');},session);await pause();
+ assert.equal(session.data.deadlineCache.VL2026270102272.records[0].submitted,true);dom.window.close();
+ const unchanged={data:JSON.parse(JSON.stringify(session.data)),writes:[]};
+ const again=setup(html,{},async()=>{throw new Error('no fetch expected');},unchanged);await pause();assert.equal(unchanged.writes.length,0,'no rewrite when nothing changed');again.dom.window.close();
+});
+test('uploading a DA forgets that course\'s cached deadlines and does not re-cache the stale dashboard',async()=>{
+ const id='VL2026270102272',other='VL2026270101830',expires=Date.now()+3*3600000,record=[{title:'Case Study - I',time:Date.parse('2099-10-24T23:59:59+05:30'),dateOnly:true,submitted:false}];
+ const session={data:{deadlineCache:{[id]:{records:record,expires},[other]:{records:record,expires}}},writes:[]};
+ const html=`<main id="b5-pagewrapper">${dashboardHTML([['Case Study - I','24-Oct-2099','']]).replace('<td>Course Title</td></tr>','<td>Course Title</td><td>Class Number</td></tr>').replace('<td>Y</td></tr>',`<td>Y</td><td>${id}</td></tr>`)}
+  <form id="daUpload"><input type="hidden" name="classIdNumber" value="${id}"><input type="file" id="studDaUpload"><button type="button" id="uploadDA">Upload</button></form></main>`;
+ const {dom,w}=setup(html,{},async()=>{throw new Error('no fetch expected');},session);await pause();
+ w.document.querySelector('#studDaUpload').dispatchEvent(new w.Event('change',{bubbles:true}));await pause();
+ assert.equal(session.data.deadlineCache[id],undefined,'uploaded course forgotten');assert.ok(session.data.deadlineCache[other],'other courses kept');
+ w.document.body.append(w.document.createElement('p'));await pause();assert.equal(session.data.deadlineCache[id],undefined,'stale dashboard not re-cached');
+ dom.window.close();
+ const clicked={data:{deadlineCache:{[id]:{records:record,expires},[other]:{records:record,expires}}},writes:[]};
+ const second=setup(html,{},async()=>{throw new Error('no fetch expected');},clicked);await pause();
+ second.w.document.querySelector('#uploadDA').dispatchEvent(new second.w.MouseEvent('click',{bubbles:true}));await pause();
+ assert.equal(clicked.data.deadlineCache[id],undefined,'upload button also forgets');assert.ok(clicked.data.deadlineCache[other]);second.dom.window.close();
 });

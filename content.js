@@ -151,8 +151,10 @@
     let pageHasSemesters = false;
     for (const select of selectors) {
       const choices = semesters.options(select);
-      if (choices.length) { pageHasSemesters = true; rememberSemesters(choices, { fresh: true }); }
-      if (!defaultSemester || !choices.length) continue;
+      if (choices.length) rememberSemesters(choices, { fresh: true });
+      if (!choices.length || semesters.transactional(select)) continue;
+      pageHasSemesters = true;
+      if (!defaultSemester) continue;
       const signature = JSON.stringify(choices);
       if (appliedSemesters.get(select) === signature) continue;
       const choice = semesters.match(select, defaultSemester);
