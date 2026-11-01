@@ -13,6 +13,8 @@ From a source checkout, run `npm ci` followed by `npm run build` first. This cre
 
 Type a page name, category, or alias such as `DA`, `CGPA`, `timetable`, or `attendance`. Use ↑/↓ and Enter, click a result, and press Escape to close. Dark mode is available from the menu's theme button or by searching `dark mode`.
 
+Dark mode covers legacy boxes, nested accordions, tabs and date pickers. It also checks loaded text against its solid background and repairs low contrast, preserving status colors where possible. Unnamed white/gray panels receive a dark background. These changes follow dynamically loaded views and disappear in light mode; native inline styles and form values are preserved. Images, charts, gradients, disabled content and documents are excluded from automatic contrast correction.
+
 ## Default semester
 
 On the first page with a semester dropdown (for example Time Table or Attendance), the extension prompts you to choose a default from VTOP's available options. The picker also works from any other page: it lists semesters VTOP has offered before, and if none are known yet (or the list is a day old) it loads them from Time Table in the background with the same read-only request VTOP's menu sends. If that fails, an **Open Time Table** button takes you there. Save it once to select that semester automatically on other matching pages, including after reloads and page replacements.
@@ -91,7 +93,7 @@ The extension never writes to VTOP or your academic record. It doesn't crawl VTO
 
 Read-only inspection of the signed-in Vellore portal found 116 menu destinations in nine groups. Dashboard, Time Table, Attendance, and Grade History were inspected. Tests use synthetic DOM fixtures with the observed menu attributes, both menu handler classes, and duplicate page names. No account data is included in the fixtures.
 
-Automated tests and local browser previews do not replace testing the installed extension in Chrome against every VTOP page. That installation/live extension check has not been performed.
+A partial signed-in Brave audit found low-contrast legacy status colors and light nested panels. The updated extension was loaded into Brave, but a VTOP `ERR_CONNECTION_RESET` interrupted the broader page audit. All-page and all-nested-view verification remains incomplete; see [the audit report](docs/dark-mode-audit.md) for findings and limits.
 
 ## Files
 
@@ -100,6 +102,7 @@ Automated tests and local browser previews do not replace testing the installed 
 - `navigation.js`: menu discovery, categories, aliases, and search ranking.
 - `semesters.js`: semester dropdown discovery and matching across page labels.
 - `content.js`: isolated Shadow DOM command palette, semester chip, preferences, and automatic semester selection.
+- `dark-readability.js`: local contrast correction for loaded VTOP text and neutral light panels.
 - `cgpa.js`: Grade History and Time Table course readers and SGPA/CGPA maths.
 - `cgpa-ui.js`: CGPA calculator inside the command window.
 - `enhancements.js`: attendance/deadline calculations, table readers, and filter identification.

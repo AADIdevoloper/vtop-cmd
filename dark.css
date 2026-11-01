@@ -26,4 +26,22 @@ html[data-vtop-command-dark] :is(.border,.border-top,.border-bottom,.border-star
 html[data-vtop-command-dark] #top-hmenu-bar .hmenuItem { border:0 !important; box-shadow:none !important; background-color:transparent !important; }
 html[data-vtop-command-dark] #top-hmenu-bar .hmenuItem:is(:hover,[aria-expanded="true"]) { background-color:#2d405d !important; }
 html[data-vtop-command-dark] #top-hmenu-bar .hmenuItem:focus-visible { outline:2px solid #9cbcff !important; outline-offset:2px; }
+/* Legacy and nested pages also use AdminLTE boxes and Bootstrap accordions. */
+html[data-vtop-command-dark] :is(.box,.box-body,.accordion,.accordion-item,.accordion-body,fieldset,legend,.tab-content,.tab-pane) { background-color:#182130 !important; color:#e0e6f0 !important; border-color:#354055 !important; }
+html[data-vtop-command-dark] :is(.box-header,.box-footer,.accordion-button,.accordion-button:not(.collapsed),.nav-tabs .nav-link.active,.nav-pills .nav-link.active) { background-color:#202d43 !important; color:#edf2fc !important; border-color:#465571 !important; box-shadow:none !important; }
+html[data-vtop-command-dark] :is(.text-primary,.text-info,.dropdown-header,.help-block) { color:#9cbcff !important; }
+html[data-vtop-command-dark] .text-warning { color:#ffe0a2 !important; }
+html[data-vtop-command-dark] .accordion-button::after { filter:brightness(0) invert(1); }
+html[data-vtop-command-dark] :is(.datepicker,.datepicker-dropdown,.bootstrap-datetimepicker-widget,.select2-results,.select2-search,.select2-search__field) { background-color:#182130 !important; color:#e0e6f0 !important; border-color:#465571 !important; }
+/* Applied only when measured text contrast is insufficient. Native colors return in light mode. */
+html[data-vtop-command-dark] [data-vtop-dark-surface] { background-color:#182130 !important; }
+html[data-vtop-command-dark] [data-vtop-readable="text"] { color:#edf2fc !important; }
+html[data-vtop-command-dark] [data-vtop-readable="ink"] { color:#10151f !important; }
+html[data-vtop-command-dark] [data-vtop-readable="white"] { color:#fff !important; }
+html[data-vtop-command-dark] [data-vtop-readable="black"] { color:#000 !important; }
+html[data-vtop-command-dark] [data-vtop-readable="red"] { color:#ffb4c1 !important; }
+html[data-vtop-command-dark] [data-vtop-readable="green"] { color:#98e6b5 !important; }
+html[data-vtop-command-dark] [data-vtop-readable="blue"] { color:#aecbff !important; }
+html[data-vtop-command-dark] [data-vtop-readable="amber"] { color:#ffe0a2 !important; }
+html[data-vtop-command-dark] [data-vtop-readable="purple"] { color:#dfbaff !important; }
 @media print { html[data-vtop-command-dark] { color-scheme:light; } #vtop-command-root { display:none !important; } }

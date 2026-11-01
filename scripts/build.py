@@ -8,7 +8,7 @@ import struct
 root = Path(__file__).resolve().parent.parent
 output = root / 'dist' / 'vtop-command'
 output.mkdir(parents=True, exist_ok=True)
-files = ['manifest.json', 'brand.js', 'navigation.js', 'semesters.js', 'enhancements.js', 'content.js', 'cgpa.js', 'cgpa-ui.js', 'page-enhancements.js', 'page-actions.js', 'page-runtime.js', 'enhancements-ui.js', 'pdf-bridge.js', 'pdf-preview.js', 'extension-action.js', 'pdf-viewer.html', 'pdf-viewer.css', 'pdf-viewer.mjs', 'dark.css', 'README.md']
+files = ['manifest.json', 'brand.js', 'navigation.js', 'semesters.js', 'enhancements.js', 'content.js', 'dark-readability.js', 'cgpa.js', 'cgpa-ui.js', 'page-enhancements.js', 'page-actions.js', 'page-runtime.js', 'enhancements-ui.js', 'pdf-bridge.js', 'pdf-preview.js', 'extension-action.js', 'pdf-viewer.html', 'pdf-viewer.css', 'pdf-viewer.mjs', 'dark.css', 'README.md', 'docs/dark-mode-audit.md']
 manifest = json.loads((root / 'manifest.json').read_text())
 assert manifest['manifest_version'] == 3
 for size, name in manifest.get('icons', {}).items():
@@ -16,6 +16,7 @@ for size, name in manifest.get('icons', {}).items():
     assert data[:8] == b'\x89PNG\r\n\x1a\n'
     assert struct.unpack('>II', data[16:24]) == (int(size), int(size))
 for name in files:
+    (output / name).parent.mkdir(parents=True, exist_ok=True)
     shutil.copy2(root / name, output / name)
 shutil.copytree(root / 'icons', output / 'icons', dirs_exist_ok=True)
 vendor = output / 'vendor'

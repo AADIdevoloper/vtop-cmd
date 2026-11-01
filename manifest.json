@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "VTOP Command",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Jump to VTOP pages with Cmd+K, and give VTOP a comfortable dark mode.",
   "permissions": [
     "storage"
@@ -19,6 +19,7 @@
         "page-actions.js",
         "cgpa.js",
         "content.js",
+        "dark-readability.js",
         "cgpa-ui.js",
         "page-enhancements.js",
         "enhancements-ui.js",
