@@ -15,7 +15,7 @@
       *{box-sizing:border-box}button,input{font:inherit}button{cursor:pointer}button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
       .dock{position:fixed;right:18px;bottom:18px;z-index:2147483645;display:flex;gap:2px;align-items:center;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);box-shadow:0 2px 10px #0000001a}
       .dock button{display:flex;align-items:center;gap:7px;border:0;border-radius:8px;background:transparent;color:inherit;padding:4px 8px;font-size:12px;font-weight:500;white-space:nowrap}.dock button:hover{background:var(--hover);color:var(--text)}
-      .dock .launcher{padding:3px 8px 3px 3px}.dock .shortcut{border:0;padding:0;font-size:12px;color:inherit;letter-spacing:.3px}.dock .sep{width:1px;height:16px;background:var(--line)}
+      .dock .launcher{padding:3px 8px 3px 3px}.dock .shortcut{border:0;padding:0;font-size:12px;color:inherit;letter-spacing:.3px}.dock .shortcut .symbol{font-size:16.5px;line-height:1;vertical-align:-1.5px}.dock .sep{width:1px;height:16px;background:var(--line)}
       .dock .semester-chip{display:block;max-width:140px;overflow:hidden;text-overflow:ellipsis}
       .logo{display:block;flex-shrink:0}.brand{display:flex;align-items:center;gap:9px}.brand .logo{width:24px;height:24px}
       kbd{font:11px/1.5 inherit;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:2px 5px;white-space:nowrap}
@@ -173,7 +173,10 @@
       prompted = true; showSemesterSettings();
     }
   }
-  shadow.querySelector('.shortcut').textContent = shortcut.label;
+  // The ⌘ glyph sits at lowercase height, so it gets its own span to match the K beside it.
+  const modifier = document.createElement('span');
+  modifier.className = shortcut.mac ? 'modifier symbol' : 'modifier'; modifier.textContent = shortcut.modifier;
+  shadow.querySelector('.shortcut').replaceChildren(modifier, ` ${shortcut.label.slice(shortcut.modifier.length).trim()}`);
 
   function setTheme(value) {
     dark = value;
