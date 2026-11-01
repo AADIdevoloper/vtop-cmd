@@ -143,7 +143,8 @@ test('Course Page defaults to saved semester, toggles all/default with original 
  assert.equal(w.document.querySelectorAll('.vtop-course-scope').length,1);dom.window.close();
 });
 test('no default shows all terms; unavailable default reports empty results and lets user show all',async()=>{
- const none=setup(registeredCourses);await pause();assert.equal(none.w.document.querySelector('#courseId').options.length,5);assert.equal(none.w.document.querySelector('.vtop-course-scope').shadowRoot.querySelector('.default').disabled,true);none.dom.window.close();
+ const none=setup(registeredCourses);await pause();assert.equal(none.w.document.querySelector('#courseId').options.length,5);const choose=none.w.document.querySelector('.vtop-course-scope').shadowRoot.querySelector('.default');assert.equal(choose.disabled,false);
+ choose.click();const menu=none.w.document.querySelector('#vtop-command-root').shadowRoot;assert.equal(menu.querySelector('dialog').open,true);assert.equal(menu.querySelector('.semester-settings').hidden,false);none.dom.window.close();
  const missing=setup(registeredCourses,{defaultSemester:{value:'other',label:'Summer Semester 2026-27'}});await pause();
  const shadow=missing.w.document.querySelector('.vtop-course-scope').shadowRoot;assert.match(shadow.querySelector('p').textContent,/No courses for Summer/);assert.equal(missing.w.document.querySelector('#courseId').options.length,1);shadow.querySelector('.all').click();assert.equal(missing.w.document.querySelector('#courseId').options.length,5);missing.dom.window.close();
 });
@@ -224,4 +225,25 @@ test('an upload from a form with no course number releases every cached course',
  const {dom,w}=setup('<main id="b5-pagewrapper"><form id="upload"><input type="file" id="file"></form></main>',{},async()=>{throw new Error('no fetch expected');},session);await pause();
  w.document.querySelector('#file').dispatchEvent(new w.Event('change',{bubbles:true}));await pause();
  assert.deepEqual(session.data.deadlineCache,{});dom.window.close();
+});
+test('each marks table gets a Total row, with marks lost in its Remark cell',async()=>{
+ const row=(n,title,max,weight,status,scored,weighted)=>`<tr class="tableContent-level1"><td><output>${n}</output></td><td><output>${title}</output></td><td><output>${max}</output></td><td><output>${weight}</output></td><td><output>${status}</output></td><td><output>${scored}</output></td><td><output>${weighted}</output></td><td><output></output></td></tr>`;
+ const header='<tr class="tableHeader-level1"><td>Sl.No.</td><td>Mark Title</td><td>Max. Mark</td><td>Weightage %</td><td>Status</td><td>Scored Mark</td><td>Weightage Mark</td><td>Remark</td></tr>';
+ const html=`<main id="b5-pagewrapper"><form id="studentMarkView"><table class="customTable"><tbody><tr class="tableContent"><td>SAMPLE101</td></tr><tr class="tableContent"><td>
+  <table class="customTable-level1" id="first"><tbody>${header}${row(1,'Sample Test - I',50,15,'Present','32.0','9.6')}${row(2,'Sample Test - II',50,15,'Present','35.0','10.5')}</tbody></table></td></tr>
+  <tr class="tableContent"><td><table class="customTable-level1" id="second"><tbody>${header}${row(1,'Quiz - I',10,10,'Present','8.5','8.5')}${row(2,'Quiz - II',10,10,'Absent','','')}</tbody></table></td></tr></tbody></table></form></main>`;
+ const {dom,w}=setup(html);await pause();
+ const totals=id=>{const rows=[...w.document.querySelector('#'+id).rows];const last=rows.at(-1);return {count:rows.filter(r=>r.classList.contains('vtop-mark-total')).length,cells:[...last.cells].map(c=>c.textContent),last:last.classList.contains('vtop-mark-total')};};
+ const first=totals('first');assert.equal(first.count,1);assert.ok(first.last);assert.deepEqual(first.cells,['','Total','100','30','','67','20.1','9.9 marks lost']);
+ assert.equal(w.document.querySelector('#first .vtop-mark-total .vtop-mark-lost').parentElement,w.document.querySelector('#first .vtop-mark-total').cells[7]);
+ assert.deepEqual(totals('second').cells.slice(2,8),['20','20','','8.5','8.5','11.5 marks lost'],'blank marks are skipped; lost is weightage % total − weightage total');
+ // A row VTOP adds later is counted, and the total stays last and single.
+ w.document.querySelector('#first tbody').insertAdjacentHTML('beforeend',row(3,'Sample Quiz',10,10,'Present','9.0','9'));await pause();
+ const updated=totals('first');assert.equal(updated.count,1);assert.ok(updated.last);assert.deepEqual(updated.cells.slice(2,8),['110','40','','76','29.1','10.9 marks lost']);
+ // Without a Remark column the note sits beside the weightage total, and repeated scans leave it stable.
+ const plain=w.document.querySelector('#second');for(const r of plain.rows)r.cells[7]?.remove();w.document.body.append(w.document.createElement('p'));await pause();await pause();
+ const cell=plain.querySelector('.vtop-mark-total').cells[6];assert.equal(cell.textContent,'8.511.5 marks lost');assert.equal(cell.querySelectorAll('.vtop-mark-lost.beside').length,1);
+ let changes=0;const watch=new w.MutationObserver(r=>{changes+=r.length;});watch.observe(plain,{subtree:true,childList:true,characterData:true});w.document.body.append(w.document.createElement('p'));await pause();await pause();watch.disconnect();assert.equal(changes,0);
+ // The outer course table has no Mark Title column and is left alone.
+ assert.equal(w.document.querySelector('.customTable').querySelectorAll(':scope > tbody > .vtop-mark-total').length,0);dom.window.close();
 });

@@ -97,3 +97,28 @@ test('reopening a disabled saved preset hydrates all unloaded dependencies in or
  const first=await setup(linked);linkedActions(first);first.open();choose(first,'School','a');await pause();choose(first,'Faculty','a1');choose(first,'Venue Type','lab');await pause();choose(first,'Block','block');await pause();choose(first,'Venue','room');choose(first,'Work','project');await pause();choose(first,'From time','18:00');choose(first,'To time','20:00');await pause();first.ui.querySelector('.enabled').checked=false;first.ui.querySelector('.save').click();await pause();
  const second=await setup(linked,first.store);linkedActions(second);second.open();await new Promise(r=>setTimeout(r,800));assert.equal(copy(second,'School').value,'a');assert.equal(copy(second,'Faculty').value,'a1');assert.equal(copy(second,'Block').value,'block');assert.equal(copy(second,'Venue').value,'room');assert.equal(copy(second,'From time').value,'18:00');assert.equal(copy(second,'To time').value,'20:00');assert.equal(second.ui.querySelector('.enabled').checked,false);first.dom.window.close();second.dom.window.close();
 });
+test('reopening an enabled preset on an already-filled page keeps the saved venue through repeated lookups',async()=>{
+ const first=await setup(linked);linkedActions(first);first.open();choose(first,'School','a');await pause();choose(first,'Faculty','a1');choose(first,'Venue Type','lab');await pause();choose(first,'Block','block');await pause();choose(first,'Venue','room');first.ui.querySelector('.save').click();await pause();
+ // The page already shows the saved block and venue, as after auto-fill; reopening reruns School and Venue Type lookups that reload the venue list.
+ const filled=linked.replace('<select disabled id="buildingId"','<select id="buildingId"').replace('<option value="">Select</option></select></label><label>Venue','<option value="">Select</option><option value="block" selected>Block One</option></select></label><label>Venue').replace('<select disabled id="venue" name="venue"><option value="">Select</option></select>','<select id="venue" name="venue"><option value="">Select</option><option value="room" selected>Room One</option></select>');
+ const second=await setup(filled,first.store);linkedActions(second);second.open();await new Promise(r=>setTimeout(r,900));
+ assert.equal(copy(second,'Block').value,'block');assert.equal(copy(second,'Venue').value,'room');first.dom.window.close();second.dom.window.close();
+});
+test('resetting a field leaves it out of the preset and reopens it as Not filled',async()=>{
+ const s=await setup();s.open();s.ui.querySelector('textarea').value='Quiet study';s.ui.querySelector('textarea').dispatchEvent(new s.w.Event('input'));choose(s,'Category','study');
+ assert.match(s.ui.querySelector('.field-count').textContent,/^3 SAVED FIELDS/);
+ s.ui.querySelector('[aria-label="Reset Category"]').click();assert.equal(s.ui.querySelector('.fields select').value,'');assert.match(s.ui.querySelector('.field-count').textContent,/^2 SAVED FIELDS/);
+ s.ui.querySelector('.save').click();await pause();
+ const values=Object.values(s.store.formPresets)[0].values;assert.ok(Object.values(values).includes('Quiet study'));assert.ok(!Object.keys(values).some(key=>key.includes('category')));
+ s.w.document.querySelector('select').value='study';s.open();
+ const head=s.ui.querySelector('[aria-label="Reset Category"]').parentElement;assert.equal(s.ui.querySelector('.fields select').value,'','reset field starts empty, not from the page');
+ assert.equal(head.querySelector('.reset').hidden,true);assert.equal(head.querySelector('.unset').hidden,false);
+ choose(s,'Category','study');assert.equal(head.querySelector('.unset').hidden,true);s.dom.window.close();
+});
+test('resetting a lookup parent empties its dependents without asking VTOP',async()=>{
+ const s=await setup(linked),actions=linkedActions(s);s.open();choose(s,'School','a');await pause();choose(s,'Faculty','a1');
+ const before=actions.calls.length;s.ui.querySelector('[aria-label="Reset School"]').click();await pause();
+ assert.equal(actions.calls.length,before,'no lookup for a reset');assert.equal(copy(s,'School').value,'');assert.equal(copy(s,'Faculty').value,'');
+ s.ui.querySelector('.save').click();await pause();const values=Object.values(s.store.formPresets)[0].values;
+ assert.ok(!Object.keys(values).some(key=>/costCentreId|appliedTo/.test(key)));s.dom.window.close();
+});

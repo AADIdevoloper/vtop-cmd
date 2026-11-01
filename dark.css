@@ -13,6 +13,14 @@ html[data-vtop-command-dark] :is(.table,table) { --bs-table-bg:#182130; --bs-tab
 html[data-vtop-command-dark] :is(th,td) { background-color:var(--bs-table-bg,#182130) !important; color:#e0e6f0 !important; border-color:#354055 !important; }
 html[data-vtop-command-dark] :is(thead th,thead td) { background-color:#26364e !important; color:#edf2fc !important; }
 html[data-vtop-command-dark] tr:nth-child(even) > td { background-color:#1d293b !important; }
+/* The Total row the extension adds to Marks tables, in both themes. Selectors outrank VTOP's !important cell borders. */
+table tr.tableContent-level1.vtop-mark-total > td,table tr.vtop-mark-total > td { background-color:#eef3fc; font-weight:600; border-top:2px solid #9db4e6 !important; }
+table tr.vtop-mark-total .vtop-mark-lost { color:#b42318; }
+table tr.vtop-mark-total .vtop-mark-lost.beside { margin-left:10px; }
+html[data-vtop-command-dark] table tr.vtop-mark-total.vtop-mark-total > td { background-color:#22314f !important; color:#edf2fc !important; border-top:2px solid #4b65a3 !important; }
+html[data-vtop-command-dark] table tr.vtop-mark-total .vtop-mark-lost { color:#ff99a8 !important; }
+/* VTOP's nested tables (Marks and similar) force light #ccc borders with !important; outrank them. */
+html[data-vtop-command-dark] :is(.customTable,.customTable-level1) > tbody > tr > :is(td,th),html[data-vtop-command-dark] .customTable-level1 :is(tr.tableHeader-level1,tr.tableContent-level1) > td { border-color:#354055 !important; }
 /* Time Table marks registered slots with a cell colour; keep them distinct from free slots and headings. */
 html[data-vtop-command-dark] #timeTableStyle td[bgcolor]:not([bgcolor="#FFFFFF" i]):not([bgcolor="#e2e2e2" i]) { background-color:#2a3f6e !important; color:#f3f6ff !important; font-weight:600; box-shadow:inset 0 0 0 1px #5675c4; }
 html[data-vtop-command-dark] :is(.dropdown-item,.list-group-item-action,.hmenuItem):hover { background-color:#2d405d !important; color:#fff !important; }
@@ -36,6 +44,7 @@ html[data-vtop-command-dark] .text-warning { color:#ffe0a2 !important; }
 html[data-vtop-command-dark] .accordion-button::after { filter:brightness(0) invert(1); }
 html[data-vtop-command-dark] :is(.datepicker,.datepicker-dropdown,.bootstrap-datetimepicker-widget,.select2-results,.select2-search,.select2-search__field) { background-color:#182130 !important; color:#e0e6f0 !important; border-color:#465571 !important; }
 /* Applied only when measured text contrast is insufficient. Native colors return in light mode. */
+html[data-vtop-readability-scan] *,html[data-vtop-readability-scan] *::before,html[data-vtop-readability-scan] *::after { transition:none !important; }
 html[data-vtop-command-dark] [data-vtop-dark-surface] { background-color:#182130 !important; }
 html[data-vtop-command-dark] [data-vtop-readable="text"] { color:#edf2fc !important; }
 html[data-vtop-command-dark] [data-vtop-readable="ink"] { color:#10151f !important; }

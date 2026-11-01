@@ -13,13 +13,12 @@ try{
  chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.darkMode)theme(changes.darkMode.newValue===true);});
 }catch{/* Tests and previews run without the extension runtime. */}
 const menuKey=globalThis.VtopBrand?.shortcut||{modifier:'Ctrl',matches:event=>(event.ctrlKey||event.metaKey)&&!event.altKey&&!event.shiftKey&&(event.key?.toLowerCase()==='k'||event.code==='KeyK')};
-$('#zoom-key').textContent=menuKey.modifier;
 let pdf,pageNumber=1,scale=1,received=false,autoFit=true,lastFitWidth=0,generation=0,running=false,scrollFrame,refreshTimer;
 function status(text){$('#status').textContent=text;}
 function notify(type,extra={}){parent.postMessage({type,nonce,...extra},parentOrigin);}
 function sheetTop(state){return Math.max(0,state.element.offsetTop-(parseFloat(getComputedStyle(container).paddingTop)||0));}
 function controls(){
- $('#page').value=pageNumber;$('#previous').disabled=pageNumber===1;$('#next').disabled=pageNumber===pdf.numPages;$('#zoom').textContent=`${Math.round(scale*100)}%`;
+ $('#page').value=pageNumber;$('#zoom').textContent=`${Math.round(scale*100)}%`;
 }
 function dimensions(state){state.element.style.width=`${state.width*scale}px`;state.element.style.height=`${state.height*scale}px`;}
 function clearCanvas(state){
@@ -144,8 +143,6 @@ window.addEventListener('message',async event=>{
   status('');jump(1);notify('viewer-loaded',{pages:pdf.numPages});
  }catch{clearTimeout(timer);status('This PDF could not be opened. You can still download the original using Download above.');notify('viewer-error');}
 });
-$('#previous').addEventListener('click',()=>jump(pageNumber-1));
-$('#next').addEventListener('click',()=>jump(pageNumber+1));
 $('#page').addEventListener('change',()=>{const value=Number($('#page').value);if(pdf&&Number.isInteger(value)&&value>=1&&value<=pdf.numPages)jump(value);else $('#page').value=pageNumber;});
 $('#zoom-in').addEventListener('click',()=>zoom(1.2));
 $('#zoom-out').addEventListener('click',()=>zoom(1/1.2));

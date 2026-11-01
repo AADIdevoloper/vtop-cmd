@@ -38,6 +38,12 @@
   let timer;
   const excluded = 'script,style,svg,canvas,iframe,video,picture,[hidden],[disabled],[aria-disabled="true"],.blockUI';
   function scan() {
+    // Measure with transitions off: otherwise a button fading between its native and corrected colour reads as
+    // readable mid-fade, loses its fix, fades back, and the next transitionend repeats it (visible flicker).
+    doc.documentElement.setAttribute('data-vtop-readability-scan','');
+    try { measure(); } finally { doc.documentElement.removeAttribute('data-vtop-readability-scan'); }
+  }
+  function measure() {
     // Attributes are our only changes: no native styles, form values or handlers are rewritten.
     doc.querySelectorAll('[data-vtop-readable]').forEach(e => e.removeAttribute('data-vtop-readable'));
     doc.querySelectorAll('[data-vtop-dark-surface]').forEach(e => e.removeAttribute('data-vtop-dark-surface'));

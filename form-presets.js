@@ -110,7 +110,7 @@
     button{border:1px solid var(--line);border-radius:8px;background:var(--hover);color:var(--text);padding:9px 13px}.close{padding:5px 8px;font-size:12px;background:transparent;color:var(--muted)}button:hover{border-color:var(--accent)}
     .intro{padding:4px 22px 18px}h2{font-size:22px;letter-spacing:-.5px;line-height:1.3;margin:4px 0 7px}.page{font-size:13px;color:var(--muted);margin:0}.body{overflow:auto;overscroll-behavior:contain;padding:0 22px;min-height:0}
     .meta{display:flex;justify-content:space-between;gap:10px;padding:10px 22px;border-block:1px solid var(--line);font-size:11px;color:var(--muted);letter-spacing:.5px;flex-shrink:0}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 16px;padding:20px 0 24px}
-    .field{display:block;min-width:0}.field.wide{grid-column:1/-1}.field>span{display:block;font-size:12px;font-weight:600;margin-bottom:7px}input:not([type=checkbox]):not([type=radio]),select,textarea{width:100%;min-height:42px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text)}input::placeholder,textarea::placeholder{color:var(--muted)}textarea{min-height:90px;resize:vertical}.check{display:flex;align-items:center;gap:10px}.check>span{margin:0}.check input{accent-color:var(--accent)}
+    .field{display:block;min-width:0}.field.wide{grid-column:1/-1}.field>span{display:block;font-size:12px;font-weight:600;margin-bottom:7px}.field-head{display:flex;align-items:baseline;justify-content:space-between;gap:8px;min-height:18px;margin-bottom:7px}.field-head>span{min-width:0;font-size:12px;font-weight:600}.field-head .reset{flex-shrink:0;padding:0 2px;border:0;border-radius:4px;background:transparent;color:var(--muted);font-size:11px;line-height:18px}.field-head .reset:hover{color:var(--accent)}.field-head .unset{flex-shrink:0;font-size:11px;font-weight:400;color:var(--muted)}.fields input:not([type=checkbox]):not([type=radio]):not(.cb-search),.fields textarea{display:block;width:100%;min-height:40px;margin:0;padding:8px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text);font-size:13px;line-height:1.4;box-shadow:0 1px 2px #0000000a;transition:border-color .12s,background .12s}.fields input:not([type=checkbox]):not([type=radio]):not(.cb-search):hover:not(:disabled),.fields textarea:hover:not(:disabled){background:var(--hover)}.fields input:not([type=checkbox]):not([type=radio]):not(.cb-search):focus-visible,.fields textarea:focus-visible{outline:2px solid var(--accent);outline-offset:2px}.fields input:disabled,.fields textarea:disabled{opacity:.55;cursor:not-allowed;box-shadow:none}.fields input::-webkit-calendar-picker-indicator{opacity:.6;cursor:pointer}input::placeholder,textarea::placeholder{color:var(--muted)}textarea{min-height:90px;resize:vertical}.check{display:flex;align-items:center;gap:10px}.check>span{margin:0}.check input{accent-color:var(--accent)}
     details{border-top:1px solid var(--line);padding:12px 0;color:var(--muted);font-size:12px}summary{cursor:pointer}details p{line-height:1.6;margin:8px 0 0}
     footer{padding:16px 22px;border-top:1px solid var(--line);background:var(--surface);flex-shrink:0}.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:18px}.toggle-title{display:block;font-weight:600;font-size:13px}.toggle-help{display:block;color:var(--muted);font-size:12px;margin-top:2px}.toggle-row input{appearance:none;position:relative;flex-shrink:0;width:36px;height:21px;margin:0;border:1px solid var(--line);border-radius:20px;background:var(--muted);cursor:pointer}.toggle-row input::before{content:"";position:absolute;width:15px;height:15px;top:2px;left:2px;border-radius:50%;background:var(--surface)}.toggle-row input:checked{background:var(--accent);border-color:var(--accent)}.toggle-row input:checked::before{transform:translateX(15px)}
     .actions{display:flex;gap:8px;margin-top:16px;align-items:center}.delete{margin-right:auto;background:transparent;color:var(--muted);font-size:12px}.cancel{margin-left:auto;background:transparent}.save:disabled{opacity:.5;cursor:default}.status{font-size:12px;color:var(--muted);margin:0}.status:not(:empty){margin-top:10px}
@@ -127,7 +127,6 @@
     const key = formKey(form), list = fields(form), preset = saved[key];
     previousFocus = button;
     editing = {key, form, controls:[], queue:[], loading:false, cancelled:false};
-    $('.field-count').textContent = `${list.length} SAVED ${list.length === 1 ? 'FIELD' : 'FIELDS'}`;
     $('.body').scrollTop = 0;
     shadow.querySelector('details').open = false;
     $('#title').textContent = preset ? 'Edit form preset' : 'Create form preset';
@@ -143,8 +142,10 @@
         for (const option of field.options) { const item = new Option(option.text, option.value); item.disabled = option.disabled || option.parentElement.disabled; copy.add(item); }
       }
       for (const attr of ['min','max','step','maxlength','placeholder']) if(field.hasAttribute(attr)) copy.setAttribute(attr,field.getAttribute(attr));
-      const id = fieldKey(field,list), value = preset && Object.hasOwn(preset.values || {},id) ? preset.values[id] : read(field);
-      if (field.tagName === 'SELECT') {
+      const id = fieldKey(field,list), kept = preset && Object.hasOwn(preset.values || {},id);
+      // A field missing from a saved preset was reset (or unavailable when saved), so it starts empty.
+      const cleared = !!preset && !kept, value = kept ? preset.values[id] : cleared ? emptyValue(copy) : read(field);
+      if (field.tagName === 'SELECT' && !cleared) {
         const selected = field.multiple ? value : [value];
         for (const missing of Array.isArray(selected) ? selected : []) if (typeof missing === 'string' && ![...copy.options].some(option => option.value === missing)) copy.add(new Option(`${missing || 'Empty choice'} (currently unavailable)`, missing));
       }
@@ -153,25 +154,61 @@
       else copy.value = value;
       copy.disabled = field.disabled;
       copy.setAttribute('aria-label',label(field,index));
-      const wrapper = document.createElement(['checkbox','radio'].includes(field.type)?'label':'div'), title = document.createElement('span');
-      wrapper.className = ['checkbox','radio'].includes(field.type) ? 'field check' : field.tagName === 'TEXTAREA' ? 'field wide' : 'field';
-      title.textContent = label(field,index); wrapper.append(title,copy); $('.fields').append(wrapper);
-      const control = {id,copy,sourceId:field.id,desired:read(copy),pendingDesired:!!preset,picker:null};
+      const toggle = ['checkbox','radio'].includes(field.type);
+      const wrapper = document.createElement(toggle?'label':'div'), title = document.createElement('span');
+      wrapper.className = toggle ? 'field check' : field.tagName === 'TEXTAREA' ? 'field wide' : 'field';
+      title.textContent = label(field,index);
+      const control = {id,copy,sourceId:field.id,desired:read(copy),pendingDesired:!!preset && !cleared,cleared,picker:null,head:null};
+      if(toggle) wrapper.append(title,copy);
+      else {
+        // Each field can be reset on its own: it empties and is left out of the preset, so auto-fill skips it.
+        const head = document.createElement('div'), reset = document.createElement('button'), unset = document.createElement('span');
+        head.className = 'field-head'; reset.type = 'button'; reset.className = 'reset'; reset.textContent = 'Reset';
+        reset.setAttribute('aria-label',`Reset ${label(field,index)}`); unset.className = 'unset'; unset.textContent = 'Not filled';
+        reset.addEventListener('click',()=>{clearControl(editing,control);(control.picker?.trigger || copy).focus();});
+        head.append(title,reset,unset); wrapper.append(head,copy); control.head = head;
+      }
+      $('.fields').append(wrapper);
       editing.controls.push(control);
       if(copy.tagName === 'SELECT' && globalThis.VtopCombobox) control.picker = globalThis.VtopCombobox.create(copy,{label:label(field,index)});
-      copy.addEventListener('input',()=>{control.desired=read(copy);});
+      copy.addEventListener('input',()=>{control.desired=read(copy);if(control.cleared){control.cleared=false;showState(control);}});
       copy.addEventListener('change',()=>{
-        control.desired=read(copy);control.pendingDesired=false;
+        control.desired=read(copy);control.pendingDesired=false;control.cleared=false;showState(control);
         const source=sourceFor(editing,control);
         if(isLookup(source)) queueLookup(editing,control,control.desired,true);
       });
+      showState(control);
     });
+    countFields();
     dialog.showModal(); $('.close').focus();
     // Reopen saved presets even when the native page hasn't loaded their children yet.
     for(const control of editing.controls) {
       const source=sourceFor(editing,control);
       if(isLookup(source) && control.desired && (source.tagName!=='SELECT' || !/select|choose/i.test(control.copy.selectedOptions[0]?.textContent || '') && control.desired!=='-1')) queueLookup(editing,control,control.desired,false);
     }
+  }
+  function emptyValue(copy) {
+    if (['checkbox','radio'].includes(copy.type)) return false;
+    if (copy.multiple) return [];
+    if (copy.tagName === 'SELECT') return [...copy.options].some(option => option.value === '') ? '' : copy.options[0]?.value || '';
+    return '';
+  }
+  function countFields() {
+    const count = editing ? editing.controls.filter(control => !control.cleared && !control.copy.disabled).length : 0;
+    $('.field-count').textContent = `${count} SAVED ${count === 1 ? 'FIELD' : 'FIELDS'}`;
+  }
+  function showState(control) {
+    if (control.head) { control.head.querySelector('.reset').hidden = control.cleared; control.head.querySelector('.unset').hidden = !control.cleared; }
+    countFields();
+  }
+  // Empty a field and leave it out of the preset. Its dependents empty with it; nothing is sent to VTOP.
+  function clearControl(session,control) {
+    const copy = control.copy, empty = emptyValue(copy);
+    if (copy.multiple) [...copy.options].forEach(option => { option.selected = false; }); else if (['checkbox','radio'].includes(copy.type)) copy.checked = false; else copy.value = empty;
+    session.queue = session.queue.filter(task => task.control !== control);
+    control.desired = read(copy); control.pendingDesired = false; control.cleared = true; control.picker?.sync(); showState(control);
+    const source = sourceFor(session,control);
+    if (isLookup(source)) for (const child of dependents(session,source)) if (!child.cleared) clearControl(session,child);
   }
   const lookupIds = new Set(['costCentreId','roomTypeId','buildingId','lateHourEventId','fromTime','lateHourFromDate','lateHourToDate','leaveFromDate','leaveToDate']);
   function isLookup(source) {
@@ -180,18 +217,22 @@
   function sourceFor(session,control) {
     return fields(session.form).find(field=>fieldKey(field,fields(session.form))===control.id);
   }
-  function resetChildren(session,source) {
+  // Fields a lookup reloads: those in its effect division, or the venue for a block (which reloads itself too).
+  function dependents(session,source) {
     const target=document.getElementById(source.dataset.effectdivision);
-    for(const control of session.controls) {
+    return session.controls.filter(control=>{
       const field=sourceFor(session,control);
-      if(field && field!==source && target?.contains(field) && !target.contains(source) ||
-         field && field!==source && target?.contains(field) && source.id==='buildingId' && field.id==='venue') {
-        control.pendingDesired=false;
-        control.desired=field.tagName==='SELECT' ? field.options[0]?.value || '' : '';
-        if(control.copy.tagName==='SELECT')control.copy.replaceChildren(new Option('Loading choices…',''));
-        control.copy.disabled=true;control.picker?.sync(true);
-        session.queue=session.queue.filter(task=>task.control!==control);
-      }
+      return field && field!==source && target?.contains(field) && (!target.contains(source) || source.id==='buildingId' && field.id==='venue');
+    });
+  }
+  function resetChildren(session,source) {
+    for(const control of dependents(session,source)) {
+      const field=sourceFor(session,control);
+      control.pendingDesired=false;control.cleared=true;showState(control);
+      control.desired=field.tagName==='SELECT' ? field.options[0]?.value || '' : '';
+      if(control.copy.tagName==='SELECT')control.copy.replaceChildren(new Option('Loading choices…',''));
+      control.copy.disabled=true;control.picker?.sync(true);
+      session.queue=session.queue.filter(task=>task.control!==control);
     }
   }
   function refreshEditor(session) {
@@ -205,12 +246,13 @@
       if(copy.tagName==='SELECT') {
         copy.replaceChildren(...[...source.options].map(option=>{const item=new Option(option.text,option.value);item.disabled=option.disabled||option.parentElement?.disabled;return item;}));
         if(available(copy,control.desired)) {
-          if(!source.disabled)control.pendingDesired=false;
+          // A saved value stays wanted until you change it or its parent: a later lookup may reload its choices.
           if(copy.multiple)[...copy.options].forEach(option=>{option.selected=control.desired.includes(option.value);});else copy.value=control.desired;
         } else {copy.value=source.value;if(!control.pendingDesired)control.desired=read(copy);}
-      } else if(!control.desired && source.value) {copy.value=source.value;control.desired=read(copy);}
+      } else if(!control.desired && source.value && !control.cleared) {copy.value=source.value;control.desired=read(copy);}
       control.picker?.sync(true);
     }
+    countFields();
   }
   async function queueLookup(session,control,value,reset) {
     if(!session || session.cancelled)return;
@@ -264,7 +306,7 @@
   }
   $('.save').addEventListener('click', async () => {
     if(editing?.loading)return;
-    const values = Object.fromEntries(editing.controls.filter(({copy})=>!copy.disabled).map(({id,copy}) => [id,read(copy)]));
+    const values = Object.fromEntries(editing.controls.filter(({copy,cleared})=>!copy.disabled && !cleared).map(({id,copy}) => [id,read(copy)]));
     if (!await persist({...saved,[editing.key]:{enabled:$('.enabled').checked,values}})) return;
     appliedReset(); dialog.close(); scan();
   });

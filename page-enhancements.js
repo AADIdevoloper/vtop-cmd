@@ -29,7 +29,11 @@
     select.before(host);
     const state = {host,shadow,children:snapshot(select),expected:[...select.options],showAll:false};
     courseHosts.set(host,select);
-    shadow.querySelector('.default').addEventListener('click',()=>{state.showAll=false;filterCourses(select,state);});
+    shadow.querySelector('.default').addEventListener('click',()=>{
+      // With no default yet, the button opens the launcher's semester picker instead of doing nothing.
+      if(!preference?.label){document.getElementById('vtop-command-root')?.dispatchEvent(new CustomEvent('vtop-choose-semester'));return;}
+      state.showAll=false;filterCourses(select,state);
+    });
     shadow.querySelector('.all').addEventListener('click',()=>{state.showAll=true;filterCourses(select,state);});
     return state;
   }
@@ -49,11 +53,11 @@
     else { const placeholder=[...select.options].find(option=>!isTerm(option)); select.selectedIndex=placeholder?placeholder.index:-1; }
     state.expected=[...select.options];
     select.dataset.vtopSemesterScope=all?'all':target;
-    state.shadow.querySelector('.default').disabled=!target;
+    state.shadow.querySelector('.default').title=target?'':'Choose a default semester';
     state.shadow.querySelector('.default').setAttribute('aria-pressed',String(!all));
     state.shadow.querySelector('.all').setAttribute('aria-pressed',String(all));
     const count=original.filter(option=>isTerm(option)&&(all||optionTerm(option)===target)).length;
-    const message=all ? `${count} courses across all semesters.${target?'':' Choose a default semester in the launcher to filter them.'}` :
+    const message=all ? `${count} courses across all semesters.${target?'':' Choose Default semester to pick one and filter them.'}` :
       count ? `${count} ${count===1?'course':'courses'} · ${preference.label}` : `No courses for ${preference.label}. Choose All semesters to browse other terms.`;
     const status=state.shadow.querySelector('p');if(status.textContent!==message)status.textContent=message;
     if(select.value!==currentValue){
@@ -261,7 +265,44 @@
     const {item,badge}=line(state.record);item.append(badge);state.shadow.querySelector('ul').replaceChildren(item);
   }
   setInterval(()=>{for(const state of liveBadges){if(!state.host.isConnected){liveBadges.delete(state);continue;}state.record?renderDue(state):renderDeadlines(state);}},60000);
-  function scan(){scanCourses();scanAttendance();scanDeadlines();}
+  // Marks: each course's mark table ends with a Total row for Max. Mark, Weightage %, Scored Mark and Weightage Mark.
+  // Its Remark cell shows the marks already lost: Weightage % total − Weightage Mark total.
+  const MARK_COLUMNS=[/^max\.?\s*mark$/i,/^weightage\s*%$/i,/^scored\s*mark$/i,/^weightage\s*mark$/i];
+  const markNumber=text=>/^-?\d+(?:\.\d+)?$/.test(text)?Number(text):null;
+  const markFormat=value=>String(Math.round(value*100)/100);
+  // Update only a cell's leading text, so a note added after it survives.
+  function markText(cell,text){let node=cell.firstChild;if(!(node instanceof Text)){node=document.createTextNode('');cell.prepend(node);}if(node.data!==text)node.data=text;}
+  function scanMarks(){
+    for(const table of document.querySelectorAll('table')){
+      const header=table.rows[0];if(!header)continue;
+      const titles=[...header.cells].map(cell=>clean(cell.textContent));
+      const titleIndex=titles.findIndex(title=>/^mark\s*title$/i.test(title)),remarkIndex=titles.findIndex(title=>/^remarks?$/i.test(title));
+      const columns=MARK_COLUMNS.map(pattern=>titles.findIndex(title=>pattern.test(title)));
+      if(titleIndex<0||columns.some(index=>index<0))continue;
+      let total=[...table.rows].find(row=>row.classList.contains('vtop-mark-total'));
+      const rows=[...table.rows].slice(1).filter(row=>row!==total&&row.cells.length===header.cells.length);
+      if(!rows.length){total?.remove();continue;}
+      const sums=columns.map(index=>{
+        const values=rows.map(row=>markNumber(clean(row.cells[index].textContent))).filter(value=>value!==null);
+        return values.length?values.reduce((sum,value)=>sum+value,0):null;
+      });
+      if(!total){
+        total=document.createElement('tr');total.className=`${rows[0].className} vtop-mark-total`.trim();
+        for(let i=0;i<header.cells.length;i++)total.append(document.createElement('td'));
+        markText(total.cells[titleIndex],'Total');
+      }
+      columns.forEach((index,i)=>markText(total.cells[index],sums[i]===null?'—':markFormat(sums[i])));
+      const [,weightage,,weighted]=sums,lost=weightage!==null&&weighted!==null?Math.max(0,weightage-weighted):null;
+      // Without a Remark column, the note sits beside the weightage total instead.
+      const cell=total.cells[remarkIndex>=0?remarkIndex:columns[3]],text=lost===null?'':`${markFormat(lost)} marks lost`;
+      let note=cell.querySelector('.vtop-mark-lost');
+      if(!text)note?.remove();
+      else if(note?.textContent!==text){if(!note){note=document.createElement('span');note.className=remarkIndex>=0?'vtop-mark-lost':'vtop-mark-lost beside';cell.append(note);}note.textContent=text;}
+      // Keep it last even when VTOP appends rows to the same table.
+      if(total!==table.rows[table.rows.length-1])rows.at(-1).parentElement.append(total);
+    }
+  }
+  function scan(){scanCourses();scanAttendance();scanDeadlines();scanMarks();}
   try {
     chrome.storage.local.get('defaultSemester').then(settings=>{preference=settings.defaultSemester;ready=true;scan();}).catch(()=>{ready=true;scan();});
     chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.defaultSemester){preference=changes.defaultSemester.newValue;scanCourses();}});
