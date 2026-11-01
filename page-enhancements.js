@@ -265,15 +265,18 @@
     const {item,badge}=line(state.record);item.append(badge);state.shadow.querySelector('ul').replaceChildren(item);
   }
   setInterval(()=>{for(const state of liveBadges){if(!state.host.isConnected){liveBadges.delete(state);continue;}state.record?renderDue(state):renderDeadlines(state);}},60000);
-  // Marks: each course's mark table gets a Total row for Max. Mark, Weightage %, Scored Mark and Weightage Mark.
+  // Marks: each course's mark table ends with a Total row for Max. Mark, Weightage %, Scored Mark and Weightage Mark.
+  // Its Remark cell shows the marks already lost: Weightage % total − Weightage Mark total.
   const MARK_COLUMNS=[/^max\.?\s*mark$/i,/^weightage\s*%$/i,/^scored\s*mark$/i,/^weightage\s*mark$/i];
   const markNumber=text=>/^-?\d+(?:\.\d+)?$/.test(text)?Number(text):null;
   const markFormat=value=>String(Math.round(value*100)/100);
+  // Update only a cell's leading text, so a note added after it survives.
+  function markText(cell,text){let node=cell.firstChild;if(!(node instanceof Text)){node=document.createTextNode('');cell.prepend(node);}if(node.data!==text)node.data=text;}
   function scanMarks(){
     for(const table of document.querySelectorAll('table')){
       const header=table.rows[0];if(!header)continue;
       const titles=[...header.cells].map(cell=>clean(cell.textContent));
-      const titleIndex=titles.findIndex(title=>/^mark\s*title$/i.test(title));
+      const titleIndex=titles.findIndex(title=>/^mark\s*title$/i.test(title)),remarkIndex=titles.findIndex(title=>/^remarks?$/i.test(title));
       const columns=MARK_COLUMNS.map(pattern=>titles.findIndex(title=>pattern.test(title)));
       if(titleIndex<0||columns.some(index=>index<0))continue;
       let total=[...table.rows].find(row=>row.classList.contains('vtop-mark-total'));
@@ -281,16 +284,22 @@
       if(!rows.length){total?.remove();continue;}
       const sums=columns.map(index=>{
         const values=rows.map(row=>markNumber(clean(row.cells[index].textContent))).filter(value=>value!==null);
-        return values.length?markFormat(values.reduce((sum,value)=>sum+value,0)):'—';
+        return values.length?values.reduce((sum,value)=>sum+value,0):null;
       });
       if(!total){
         total=document.createElement('tr');total.className=`${rows[0].className} vtop-mark-total`.trim();
-        for(let i=0;i<header.cells.length;i++){const cell=document.createElement('td');cell.style.cssText='font-weight:600;border-top-width:2px';total.append(cell);}
-        total.cells[titleIndex].textContent='Total';
+        for(let i=0;i<header.cells.length;i++)total.append(document.createElement('td'));
+        markText(total.cells[titleIndex],'Total');
       }
-      columns.forEach((index,i)=>{if(total.cells[index].textContent!==sums[i])total.cells[index].textContent=sums[i];});
+      columns.forEach((index,i)=>markText(total.cells[index],sums[i]===null?'—':markFormat(sums[i])));
+      const [,weightage,,weighted]=sums,lost=weightage!==null&&weighted!==null?Math.max(0,weightage-weighted):null;
+      // Without a Remark column, the note sits beside the weightage total instead.
+      const cell=total.cells[remarkIndex>=0?remarkIndex:columns[3]],text=lost===null?'':`${markFormat(lost)} marks lost`;
+      let note=cell.querySelector('.vtop-mark-lost');
+      if(!text)note?.remove();
+      else if(note?.textContent!==text){if(!note){note=document.createElement('span');note.className=remarkIndex>=0?'vtop-mark-lost':'vtop-mark-lost beside';cell.append(note);}note.textContent=text;}
       // Keep it last even when VTOP appends rows to the same table.
-      if(total!==table.rows[table.rows.length-1]||!total.isConnected)rows.at(-1).parentElement.append(total);
+      if(total!==table.rows[table.rows.length-1])rows.at(-1).parentElement.append(total);
     }
   }
   function scan(){scanCourses();scanAttendance();scanDeadlines();scanMarks();}

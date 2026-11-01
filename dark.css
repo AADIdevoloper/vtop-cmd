@@ -13,6 +13,12 @@ html[data-vtop-command-dark] :is(.table,table) { --bs-table-bg:#182130; --bs-tab
 html[data-vtop-command-dark] :is(th,td) { background-color:var(--bs-table-bg,#182130) !important; color:#e0e6f0 !important; border-color:#354055 !important; }
 html[data-vtop-command-dark] :is(thead th,thead td) { background-color:#26364e !important; color:#edf2fc !important; }
 html[data-vtop-command-dark] tr:nth-child(even) > td { background-color:#1d293b !important; }
+/* The Total row the extension adds to Marks tables, in both themes. Selectors outrank VTOP's !important cell borders. */
+table tr.tableContent-level1.vtop-mark-total > td,table tr.vtop-mark-total > td { background-color:#eef3fc; font-weight:600; border-top:2px solid #9db4e6 !important; }
+table tr.vtop-mark-total .vtop-mark-lost { color:#b42318; }
+table tr.vtop-mark-total .vtop-mark-lost.beside { margin-left:10px; }
+html[data-vtop-command-dark] table tr.vtop-mark-total.vtop-mark-total > td { background-color:#22314f !important; color:#edf2fc !important; border-top:2px solid #4b65a3 !important; }
+html[data-vtop-command-dark] table tr.vtop-mark-total .vtop-mark-lost { color:#ff99a8 !important; }
 /* VTOP's nested tables (Marks and similar) force light #ccc borders with !important; outrank them. */
 html[data-vtop-command-dark] :is(.customTable,.customTable-level1) > tbody > tr > :is(td,th),html[data-vtop-command-dark] .customTable-level1 :is(tr.tableHeader-level1,tr.tableContent-level1) > td { border-color:#354055 !important; }
 /* Time Table marks registered slots with a cell colour; keep them distinct from free slots and headings. */

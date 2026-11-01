@@ -226,7 +226,7 @@ test('an upload from a form with no course number releases every cached course',
  w.document.querySelector('#file').dispatchEvent(new w.Event('change',{bubbles:true}));await pause();
  assert.deepEqual(session.data.deadlineCache,{});dom.window.close();
 });
-test('each marks table gets a Total row for max, weightage %, scored and weightage marks',async()=>{
+test('each marks table gets a Total row, with marks lost in its Remark cell',async()=>{
  const row=(n,title,max,weight,status,scored,weighted)=>`<tr class="tableContent-level1"><td><output>${n}</output></td><td><output>${title}</output></td><td><output>${max}</output></td><td><output>${weight}</output></td><td><output>${status}</output></td><td><output>${scored}</output></td><td><output>${weighted}</output></td><td><output></output></td></tr>`;
  const header='<tr class="tableHeader-level1"><td>Sl.No.</td><td>Mark Title</td><td>Max. Mark</td><td>Weightage %</td><td>Status</td><td>Scored Mark</td><td>Weightage Mark</td><td>Remark</td></tr>';
  const html=`<main id="b5-pagewrapper"><form id="studentMarkView"><table class="customTable"><tbody><tr class="tableContent"><td>SAMPLE101</td></tr><tr class="tableContent"><td>
@@ -234,11 +234,16 @@ test('each marks table gets a Total row for max, weightage %, scored and weighta
   <tr class="tableContent"><td><table class="customTable-level1" id="second"><tbody>${header}${row(1,'Quiz - I',10,10,'Present','8.5','8.5')}${row(2,'Quiz - II',10,10,'Absent','','')}</tbody></table></td></tr></tbody></table></form></main>`;
  const {dom,w}=setup(html);await pause();
  const totals=id=>{const rows=[...w.document.querySelector('#'+id).rows];const last=rows.at(-1);return {count:rows.filter(r=>r.classList.contains('vtop-mark-total')).length,cells:[...last.cells].map(c=>c.textContent),last:last.classList.contains('vtop-mark-total')};};
- const first=totals('first');assert.equal(first.count,1);assert.ok(first.last);assert.deepEqual(first.cells,['','Total','100','30','','67','20.1','']);
- assert.deepEqual(totals('second').cells,['','Total','20','20','','8.5','8.5',''],'blank marks are skipped');
+ const first=totals('first');assert.equal(first.count,1);assert.ok(first.last);assert.deepEqual(first.cells,['','Total','100','30','','67','20.1','9.9 marks lost']);
+ assert.equal(w.document.querySelector('#first .vtop-mark-total .vtop-mark-lost').parentElement,w.document.querySelector('#first .vtop-mark-total').cells[7]);
+ assert.deepEqual(totals('second').cells.slice(2,8),['20','20','','8.5','8.5','11.5 marks lost'],'blank marks are skipped; lost is weightage % total − weightage total');
  // A row VTOP adds later is counted, and the total stays last and single.
  w.document.querySelector('#first tbody').insertAdjacentHTML('beforeend',row(3,'Sample Quiz',10,10,'Present','9.0','9'));await pause();
- const updated=totals('first');assert.equal(updated.count,1);assert.ok(updated.last);assert.deepEqual(updated.cells.slice(2,7),['110','40','','76','29.1']);
+ const updated=totals('first');assert.equal(updated.count,1);assert.ok(updated.last);assert.deepEqual(updated.cells.slice(2,8),['110','40','','76','29.1','10.9 marks lost']);
+ // Without a Remark column the note sits beside the weightage total, and repeated scans leave it stable.
+ const plain=w.document.querySelector('#second');for(const r of plain.rows)r.cells[7]?.remove();w.document.body.append(w.document.createElement('p'));await pause();await pause();
+ const cell=plain.querySelector('.vtop-mark-total').cells[6];assert.equal(cell.textContent,'8.511.5 marks lost');assert.equal(cell.querySelectorAll('.vtop-mark-lost.beside').length,1);
+ let changes=0;const watch=new w.MutationObserver(r=>{changes+=r.length;});watch.observe(plain,{subtree:true,childList:true,characterData:true});w.document.body.append(w.document.createElement('p'));await pause();await pause();watch.disconnect();assert.equal(changes,0);
  // The outer course table has no Mark Title column and is left alone.
  assert.equal(w.document.querySelector('.customTable').querySelectorAll(':scope > tbody > .vtop-mark-total').length,0);dom.window.close();
 });

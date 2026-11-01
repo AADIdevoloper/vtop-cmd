@@ -84,7 +84,7 @@ How these are loaded, and why that's gentle on VTOP, is explained in [Safety](#s
 
 ### Marks totals
 
-On **Marks**, each course's table ends with a **Total** row adding up Max. Mark, Weightage %, Scored Mark and Weightage Mark. Blank marks are skipped rather than counted as zero.
+On **Marks**, each course's table ends with a highlighted **Total** row adding up Max. Mark, Weightage %, Scored Mark and Weightage Mark. Its Remark cell shows how many marks you've already lost: Weightage % total − Weightage Mark total. Blank marks are skipped in the totals.
 
 ### CGPA calculator
 
