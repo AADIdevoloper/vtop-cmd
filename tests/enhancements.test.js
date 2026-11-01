@@ -76,7 +76,7 @@ test('filter memory can be disabled and cleared from tools',async()=>{
 test('Cmd+K moves from study tools to the command palette without leaving stacked dialogs',async()=>{
  const {dom,w,shadow}=setup('<main id="b5-pagewrapper"><h1>Marks</h1></main>');await pause();
  shadow.querySelector('.tools-launcher').click();
- w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'k',metaKey:true,bubbles:true,cancelable:true}));
+ w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true,cancelable:true}));
  assert.equal(shadow.querySelector('.tools-dialog').open,false);
  assert.equal(shadow.querySelector('dialog').open,true);
  dom.window.close();

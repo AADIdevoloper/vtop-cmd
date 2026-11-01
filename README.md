@@ -9,21 +9,21 @@ From a source checkout, run `npm ci` followed by `npm run build` first. This cre
 1. Open `chrome://extensions` in Chrome and enable **Developer mode**.
 2. Choose **Load unpacked** and select the `dist/vtop-command` folder from this project (or extract `dist/vtop-command.zip` and select that folder).
 3. Reload VTOP and sign in normally.
-4. Press **Cmd+K** on macOS or **Ctrl+K** on Windows/Linux. A **Jump to…** button also opens the menu.
+4. Press **⌘K** on macOS or **Ctrl+K** on Windows/Linux. The launcher shows the shortcut for your platform, and the key works on any keyboard layout. A **Jump to…** button also opens the menu.
 
 Type a page name, category, or alias such as `DA`, `CGPA`, `timetable`, or `attendance`. Use ↑/↓ and Enter, click a result, and press Escape to close. Dark mode is available from the menu's theme button or by searching `dark mode`.
 
 ## Default semester
 
-On the first page with a semester dropdown (for example Time Table or Attendance), the extension prompts you to choose a default from VTOP's available options. Save it once to select that semester automatically on other matching pages, including after reloads and page replacements.
+On the first page with a semester dropdown (for example Time Table or Attendance), the extension prompts you to choose a default from VTOP's available options. The picker also works from any other page: it lists semesters VTOP has offered before, and if none are known yet (or the list is a day old) it loads them from Time Table in the background with the same read-only request VTOP's menu sends. If that fails, an **Open Time Table** button takes you there. Save it once to select that semester automatically on other matching pages, including after reloads and page replacements.
 
-Use **Cmd+K → Choose default semester**, or the **Semester** button in the menu, to change it or turn automatic selection off. A manual change on the current page stays in place. If the saved semester isn't available on a page, the extension leaves that dropdown unchanged. Semester selection dispatches VTOP's native change event; no extra submit button is clicked.
+Use **⌘K/Ctrl+K → Choose default semester**, or the **Semester** button in the menu, to change it or turn automatic selection off. A manual change on the current page stays in place. If the saved semester isn't available on a page, the extension leaves that dropdown unchanged. Semester selection dispatches VTOP's native change event; no extra submit button is clicked.
 
 The **Course Page** registered-course dropdown shows only courses from the saved default semester. Use the **Default semester / All semesters** buttons beside it to switch views. If no default is set, all courses stay available; if no courses match, a message explains how to browse all semesters.
 
 ## Study tools and filter memory
 
-The floating launcher shows a clickable **semester chip**. Attendance calculations appear directly on the Attendance page. Use **Tools**, or search **assignment** in Cmd+K, for the assignment countdown and filter settings.
+The floating launcher shows a clickable **semester chip**. Attendance calculations appear directly on the Attendance page. Use **Tools**, or search **assignment** in the command menu, for the assignment countdown and filter settings.
 
 - **Attendance calculator:** open Attendance and load a semester. Each course row shows classes needed to reach 75%, or classes you can miss while staying at or above 75%, under the attendance percentage. The target is fixed at 75%. Estimates assume equally weighted future classes.
 - **Assignment countdown:** reads due/last-date columns in the currently loaded page, excludes explicitly submitted assignments, shows the next pending deadline and overdue count. Open a course's assignment detail dashboard to expose its deadlines; the extension does not crawl unopened course dashboards. A manual date/time field is also available. All deadlines use IST; date-only values assume 23:59:59 and are estimates of the cutoff.
@@ -33,15 +33,15 @@ The calculators read only currently loaded data and keep it in memory. Unknown d
 
 ## PDF viewer
 
-Supported VTOP download links now open PDFs in an in-page viewer. Scroll continuously through all pages with your mouse wheel, trackpad, or keyboard. Previous/Next and page numbers jump to pages in the same scrollable document; zoom and Fit width still work. Pages render near the viewport and release distant canvases to limit memory use. **Download** saves the original PDF when you choose; **Close** returns to VTOP. Password-protected PDFs prompt inside the viewer.
+Supported VTOP download links now open PDFs in an in-page viewer. Scroll continuously through all pages with your mouse wheel, trackpad, or keyboard. Previous/Next and page numbers jump to pages in the same scrollable document. Zoom with **⌘/Ctrl + scroll**, a trackpad pinch, **⌘/Ctrl + +/−**, or the toolbar; zoom keeps the point under the pointer in place, and **⌘/Ctrl + 0** or **Fit width** fits the page again. The preview uses the command menu's look and follows its light/dark setting; **Esc** closes it and **⌘K/Ctrl+K** jumps to the menu even while the PDF has focus. Pages render near the viewport and release distant canvases to limit memory use. **Download** saves the original PDF when you choose; **Close** returns to VTOP. Password-protected PDFs prompt inside the viewer.
 
-The extension preserves VTOP's authenticated requests and supports same-origin PDF/download/view-file links, explicit PDF links with opaque URLs, JavaScript `window.open` download helpers, PDF blob/data URLs, and download-only GET/POST forms. Download intent is recognized from form IDs and the clicked PDF/download control as well as the URL, including Curriculum's `academics/curriculDown/` form. Non-PDF files retain download behavior. Shift-click a link to bypass the viewer. External document services and downloads launched by direct location replacement are not intercepted.
+The extension preserves VTOP's authenticated requests and supports same-origin PDF/download/view-file links, explicit PDF links with opaque URLs, JavaScript `window.open` download helpers, PDF blob/data URLs, download-only GET/POST forms, VTOP's `downloadFileWithProgress` and `vtopDownload` helpers, and location-style navigations to download endpoints (via the Navigation API). Icon-only download buttons count as download intent. Download intent is recognized from form IDs and the clicked PDF/download control as well as the URL, including Curriculum's `academics/curriculDown/` form. Non-PDF files retain download behavior. Shift-click a link to bypass the viewer. External document services are not intercepted.
 
 PDF.js is bundled locally with its license; no document is sent to a third-party viewer. Documents and temporary PDF URLs stay in memory and are released when the viewer closes. Rendering failures leave the original Download option available.
 
 ## Navigation reliability
 
-Automatic semester and remembered-filter changes wait for native page requests to finish. Cmd+K navigation takes priority over queued changes on the page being left. Native VTOP handlers run in the page world, one action at a time. If an automatic action leaves a loading overlay behind after all requests finish, the extension clears only that action's leftover blocker; unrelated page blockers remain untouched.
+Automatic semester and remembered-filter changes wait for native page requests to finish. Command-menu navigation takes priority over queued changes on the page being left. Native VTOP handlers run in the page world, one action at a time. If an automatic action leaves a loading overlay behind after all requests finish, the extension clears only that action's leftover blocker; unrelated page blockers remain untouched.
 
 ## Logo and toolbar
 
@@ -53,9 +53,9 @@ VTOP Command uses an original V-shaped navigation-arrow logo. Pin the extension 
 - Uses existing VTOP click handlers for both Bootstrap 5 and legacy navigation. Opening a destination only activates its menu entry; it does not submit the destination's form.
 - Categories and subsections distinguish repeated names, such as regular and arrear exam schedules.
 - Detects menu replacement while open and resolves the current menu element before activation.
-- Recent choices exist only in the current tab's memory. Only the theme, default semester, filter-memory setting, and selected query dropdown values (up to 100) are saved to `chrome.storage.local`. Attendance counts and assignment details are not persisted.
+- Recent choices exist only in the current tab's memory. Only the theme, default semester, the list of semester names VTOP offers (up to 30), filter-memory setting, and selected query dropdown values (up to 100) are saved to `chrome.storage.local`. Attendance counts and assignment details are not persisted.
 - No analytics, credential storage, third-party document uploads, or broad host permissions. PDF preview fetches the original VTOP download using the existing session.
-- Theme styles are opt-in. Images and PDF pages retain original colors. The PDF viewer has its own dark toolbar.
+- Theme styles are opt-in. Images and PDF pages retain original colors; the PDF viewer's chrome follows the menu theme.
 
 ## Validation
 
@@ -68,6 +68,7 @@ Automated tests and local browser previews do not replace testing the installed 
 ## Files
 
 - `manifest.json`: VTOP-only content scripts and local preference permission.
+- `brand.js`: shared logo, colour tokens and platform shortcut for the menu and PDF viewer.
 - `navigation.js`: menu discovery, categories, aliases, and search ranking.
 - `semesters.js`: semester dropdown discovery and matching across page labels.
 - `content.js`: isolated Shadow DOM command palette, semester chip, preferences, and automatic semester selection.

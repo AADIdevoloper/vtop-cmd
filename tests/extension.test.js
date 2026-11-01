@@ -4,13 +4,15 @@ const fs = require('node:fs');
 const { JSDOM } = require('jsdom');
 const { discover, search } = require('../navigation');
 const fixture = fs.readFileSync(__dirname + '/fixture.html', 'utf8');
-function setup({ signedIn = true, savedDark = false, savedSemester, html } = {}) {
+function setup({ signedIn = true, savedDark = false, savedSemester, savedKnown, fetch, html, platform } = {}) {
   const dom = new JSDOM(html || (signedIn ? fixture : '<!doctype html><html><body><form>Sign in</form></body></html>'), { runScripts: 'outside-only', url: 'https://vtop.vit.ac.in/vtop/content' });
   const w = dom.window;
   w.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   w.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new w.Event('close')); };
   const writes = [];
-  w.chrome = { storage: { local: { get: async () => ({ darkMode: savedDark, defaultSemester: savedSemester }), set: async value => writes.push(value) }, onChanged: { addListener() {} } } };
+  w.chrome = { storage: { local: { get: async () => ({ darkMode: savedDark, defaultSemester: savedSemester, knownSemesters: savedKnown }), set: async value => writes.push(value) }, onChanged: { addListener() {} } } };
+  if (fetch) w.fetch = fetch;
+  if (platform) Object.defineProperty(w.navigator, 'platform', { value: platform, configurable: true });
   w.eval(fs.readFileSync(__dirname + '/../brand.js', 'utf8'));
   w.eval(fs.readFileSync(__dirname + '/../navigation.js', 'utf8'));
   w.eval(fs.readFileSync(__dirname + '/../semesters.js', 'utf8'));
@@ -37,13 +39,13 @@ test('finds aliases, categories, mixed-word queries, acronyms, and partial spell
   assert.equal(search(commands,'arrear')[0].label,'Exam Schedule');
   dom.window.close();
 });
-test('Cmd+K and Ctrl+K toggle; keyboard selection invokes the existing page handler once and restores focus', async () => {
+test('Ctrl+K toggles (Windows/Linux); keyboard selection invokes the existing page handler once and restores focus', async () => {
   const {dom,w,shadow,key,query}=setup();
   const focus = w.document.querySelector('#before'); focus.focus();
   let clicks=0, submits=0;
   w.document.querySelector('[data-url="examinations/StudentDA"]').addEventListener('click', e=>{e.preventDefault();clicks++;});
   w.document.querySelector('form').addEventListener('submit',()=>submits++);
-  key('k',{metaKey:true}); assert.equal(shadow.querySelector('dialog').open,true);
+  key('k',{ctrlKey:true}); assert.equal(shadow.querySelector('dialog').open,true);
   query('da'); key('ArrowDown',{},shadow.querySelector('input')); key('ArrowUp',{},shadow.querySelector('input')); key('Enter',{},shadow.querySelector('input'));
   assert.equal(clicks,1); assert.equal(submits,0); assert.equal(shadow.querySelector('dialog').open,false); assert.equal(w.document.activeElement,focus);
   key('k',{ctrlKey:true}); assert.equal(shadow.querySelector('dialog').open,true);
@@ -51,7 +53,7 @@ test('Cmd+K and Ctrl+K toggle; keyboard selection invokes the existing page hand
   dom.window.close();
 });
 test('re-resolves native elements after AJAX replacement and discovers newly inserted pages', async () => {
-  const {dom,w,shadow,key,query}=setup(); key('k',{metaKey:true}); query('attendance');
+  const {dom,w,shadow,key,query}=setup(); key('k',{ctrlKey:true}); query('attendance');
   const original=w.document.querySelector('[data-url="academics/common/StudentAttendance"]');
   const replacement=original.cloneNode(true); let clicks=0; replacement.addEventListener('click',e=>{e.preventDefault(); clicks++;}); original.replaceWith(replacement);
   key('Enter',{},shadow.querySelector('input')); assert.equal(clicks,1);
@@ -107,7 +109,7 @@ test('first semester page prompts, saving selects the default and dispatches exa
   const picker=shadow.querySelector('#default-semester'); picker.value='0'; picker.dispatchEvent(new w.Event('change'));
   shadow.querySelector('.save-semester').click(); await pause();
   assert.equal(select.value,savedSemester.value); assert.equal(changes,1); assert.equal(submits,0);
-  assert.equal(writes[0].defaultSemester.label,savedSemester.label);
+  assert.equal(writes.find(write=>'defaultSemester' in write).defaultSemester.label,savedSemester.label);
   assert.equal(shadow.querySelector('dialog').open,false);
   dom.window.close();
 });
@@ -139,11 +141,75 @@ test('semester controls keep native arrow/Enter behavior; turning auto-selection
   assert.equal(key('ArrowDown',{},picker),true);
   assert.equal(key('Enter',{},picker),true);
   shadow.querySelector('.clear-semester').click();
-  assert.equal(writes.at(-1).defaultSemester,null);
+  assert.equal(writes.filter(write=>'defaultSemester' in write).at(-1).defaultSemester,null);
   const replacement=w.document.createElement('div'); replacement.innerHTML=semesterHTML;
   w.document.querySelector('select').replaceWith(replacement); await pause();
   assert.equal(replacement.querySelector('select').value,'');
   dom.window.close();
   const off=setup({html:semesterHTML,savedSemester:null}); await flush();
   assert.equal(off.shadow.querySelector('dialog').open,false); off.dom.window.close();
+});
+
+const signedInHTML = fs.readFileSync(__dirname + '/fixture.html', 'utf8').replace('</body>', '<input type="hidden" id="authorizedIDX" value="TEST-ID"><input type="hidden" name="_csrf" value="test-csrf"></body>');
+const terms = [{value:'VL20262701',label:'Fall Semester 2026-27'},{value:'VL20252605',label:'Winter Semester 2025-26'}];
+test('picker lists remembered semesters on pages without a semester dropdown', async () => {
+  let fetches=0;
+  const {dom,shadow}=setup({html:signedInHTML,savedKnown:{list:terms,updated:Date.now()},fetch:async()=>{fetches++;throw new Error('offline');}}); await flush();
+  assert.equal(shadow.querySelector('dialog').open,false,'remembered terms alone do not prompt');
+  shadow.querySelector('.semester-chip').click();
+  const picker=shadow.querySelector('#default-semester');
+  assert.deepEqual([...picker.options].slice(1).map(o=>o.textContent),terms.map(t=>t.label));
+  assert.equal(picker.disabled,false); assert.equal(fetches,0,'a fresh cache needs no request');
+  dom.window.close();
+});
+test('empty picker loads semesters from Time Table with the menu request, then saves the list', async () => {
+  const calls=[];
+  const fetch=async (url,init)=>{calls.push({url:String(url),init});return {ok:true,text:async()=>'<div><script>throw 1</script>'+semesterHTML+'</div>'};};
+  const {dom,shadow,writes}=setup({html:signedInHTML,fetch}); await flush();
+  shadow.querySelector('.semester-chip').click();
+  assert.match(shadow.querySelector('.semester-status').textContent,/Loading semesters/);
+  await pause();
+  assert.equal(calls.length,1); assert.equal(calls[0].url,'https://vtop.vit.ac.in/vtop/academics/common/StudentTimeTable');
+  assert.equal(calls[0].init.method,'POST'); assert.equal(calls[0].init.credentials,'same-origin');
+  const body=calls[0].init.body; assert.equal(body.get('verifyMenu'),'true'); assert.equal(body.get('authorizedID'),'TEST-ID'); assert.equal(body.get('_csrf'),'test-csrf');
+  const picker=shadow.querySelector('#default-semester');
+  assert.deepEqual([...picker.options].slice(1).map(o=>o.textContent),terms.map(t=>t.label));
+  assert.equal(JSON.stringify(writes.find(w=>w.knownSemesters).knownSemesters.list),JSON.stringify(terms));
+  shadow.querySelector('.skip-semester').click(); shadow.querySelector('.semester-chip').click(); await pause();
+  assert.equal(calls.length,1,'one request per page load');
+  dom.window.close();
+});
+test('failed semester load explains the fallback and offers Time Table', async () => {
+  const {dom,w,shadow}=setup({html:signedInHTML,fetch:async()=>({ok:true,text:async()=>'<p>___INTERNAL___RESPONSE___</p>'})}); await flush();
+  let opened=0; w.document.querySelector('[data-url="academics/common/StudentTimeTable"].systemB5BtnMenu').addEventListener('click',e=>{e.preventDefault();opened++;});
+  shadow.querySelector('.semester-chip').click(); await pause();
+  assert.match(shadow.querySelector('.semester-status').textContent,/Couldn't load semesters/);
+  assert.equal(shadow.querySelector('#default-semester').disabled,true);
+  const button=shadow.querySelector('.open-timetable'); assert.equal(button.hidden,false);
+  button.click(); assert.equal(opened,1); assert.equal(shadow.querySelector('dialog').open,false);
+  dom.window.close();
+});
+test('semesters seen on a page are remembered without rewriting storage on every scan', async () => {
+  const {dom,w,writes}=setup({html:semesterHTML,savedSemester}); await flush();
+  const saved=writes.filter(write=>write.knownSemesters);
+  assert.equal(saved.length,1); assert.equal(JSON.stringify(saved[0].knownSemesters.list),JSON.stringify(terms));
+  w.document.body.append(w.document.createElement('p')); await pause();
+  assert.equal(writes.filter(write=>write.knownSemesters).length,1);
+  dom.window.close();
+});
+test('Windows/Linux use and show Ctrl+K only; macOS uses and shows Cmd+K; physical K works on any layout', () => {
+  for (const platform of ['Win32','Linux x86_64']) {
+    const {dom,shadow,key}=setup({platform});
+    assert.equal(shadow.querySelector('.shortcut').textContent,'Ctrl K');
+    key('k',{metaKey:true}); assert.equal(shadow.querySelector('dialog').open,false,'Windows key + K is left to the OS');
+    key('л',{ctrlKey:true,code:'KeyK'}); assert.equal(shadow.querySelector('dialog').open,true,'non-Latin layout');
+    key('K',{ctrlKey:true}); assert.equal(shadow.querySelector('dialog').open,false,'Caps Lock');
+    key('k',{ctrlKey:true,shiftKey:true}); assert.equal(shadow.querySelector('dialog').open,false);
+    dom.window.close();
+  }
+  const mac=setup({platform:'MacIntel'});
+  assert.equal(mac.shadow.querySelector('.shortcut').textContent,'⌘ K');
+  mac.key('k',{ctrlKey:true}); assert.equal(mac.shadow.querySelector('dialog').open,false,'Ctrl+K stays native on macOS');
+  mac.key('k',{metaKey:true}); assert.equal(mac.shadow.querySelector('dialog').open,true);
+  mac.dom.window.close();
 });

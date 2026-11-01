@@ -6,7 +6,7 @@
   const host = document.createElement('div');
   host.id = 'vtop-command-root';
   const shadow = host.attachShadow({ mode: 'open' });
-  const { logo, tokens, font } = globalThis.VtopBrand;
+  const { logo, tokens, font, shortcut } = globalThis.VtopBrand;
   shadow.innerHTML = `
     <style>
       :host{all:initial;color-scheme:light;${tokens.light};font:${font};color:var(--text)}
@@ -35,7 +35,7 @@
         <p class="semester-help">We'll select this semester whenever a VTOP page asks for one. You can still change it on any page.</p>
         <label for="default-semester">Default semester</label><select id="default-semester"></select>
         <p class="semester-status" role="status"></p>
-        <div class="semester-actions"><button class="save-semester" type="button">Save default</button><button class="clear-semester" type="button">Turn off</button><button class="skip-semester" type="button">Back</button></div>
+        <div class="semester-actions"><button class="save-semester" type="button">Save default</button><button class="open-timetable" type="button" hidden>Open Time Table</button><button class="clear-semester" type="button">Turn off</button><button class="skip-semester" type="button">Back</button></div>
       </section>
       <div class="search"><span aria-hidden="true">⌕</span><input aria-label="Search VTOP pages" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="results" placeholder="Where do you want to go?" autocomplete="off" spellcheck="false"></div>
       <div class="meta"><span class="section">ALL PAGES</span><span class="count" role="status" aria-live="polite"></span></div>
@@ -49,9 +49,51 @@
   let commands = [], filtered = [], selected = 0, recent = [], previousFocus, dark = false;
   let defaultSemester = null, preferencesReady = false, prompted = false, semesterView = false;
   let appliedSemesters = new WeakMap();
-  const knownSemesters = new Map();
+  let knownSemesters = new Map(), semestersUpdated = 0, semesterFetch = null, semesterFetchFailed = false;
   const semesterPicker = shadow.querySelector('#default-semester');
   let semesterChoices = [];
+  const SEMESTER_CACHE_AGE = 24 * 60 * 60 * 1000;
+  // Remember every semester VTOP has offered so the picker works on pages without a dropdown.
+  function rememberSemesters(choices, { fresh = false, persist = true } = {}) {
+    const merged = new Map();
+    // A complete list from VTOP keeps VTOP's newest-first order; older remembered terms follow.
+    for (const source of fresh ? [choices, knownSemesters.values()] : [knownSemesters.values(), choices])
+      for (const choice of source) if (choice?.value && choice?.label && !merged.has(semesters.key(choice.label)))
+        merged.set(semesters.key(choice.label), { value: String(choice.value), label: String(choice.label) });
+    const list = [...merged.values()].slice(0, 30);
+    const changed = JSON.stringify(list) !== JSON.stringify([...knownSemesters.values()]);
+    knownSemesters = new Map(list.map(choice => [semesters.key(choice.label), choice]));
+    const stale = Date.now() - semestersUpdated > SEMESTER_CACHE_AGE / 24;
+    if (fresh) semestersUpdated = Date.now();
+    // Page scans run on every DOM change; only write when the list changed or the timestamp is an hour old.
+    if (persist && (changed || (fresh && stale))) {
+      try { chrome.storage.local.set({ knownSemesters: { list, updated: semestersUpdated } })?.catch(() => {}); } catch { /* Extension reloaded. */ }
+    }
+    return changed;
+  }
+  function semesterRoute() {
+    const pages = discover(document);
+    return (pages.find(page => /time ?table/i.test(page.label)) || pages.find(page => /^class attendance$/i.test(page.label)))?.id || 'academics/common/StudentTimeTable';
+  }
+  // Load the semester list the same way VTOP's menu loads Time Table: a read-only POST of the page fragment.
+  function fetchSemesters() {
+    if (semesterFetch) return semesterFetch;
+    semesterFetch = (async () => {
+      const csrf = document.querySelector('input[name="_csrf"]')?.value || document.querySelector('meta[name="_csrf"]')?.content;
+      const id = document.querySelector('#authorizedIDX')?.value;
+      if (!csrf || !id) throw new Error('Not signed in');
+      for (let wait = 0; wait < 50 && document.documentElement.getAttribute('data-vtop-page-busy') === 'true'; wait++) await new Promise(resolve => setTimeout(resolve, 100));
+      const url = new URL(semesterRoute(), document.baseURI);
+      if (url.origin !== location.origin || !url.pathname.startsWith('/vtop/')) throw new Error('Unexpected route');
+      const response = await fetch(url, { method: 'POST', credentials: 'same-origin', headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: new URLSearchParams({ verifyMenu: 'true', authorizedID: id, _csrf: csrf, nocache: String(Date.now()) }) });
+      const html = response.ok ? await response.text() : '';
+      const choices = html.includes('___INTERNAL___RESPONSE___') ? [] : semesters.fromHTML(html);
+      if (!choices.length) throw new Error('No semesters found');
+      rememberSemesters(choices, { fresh: true });
+    })().catch(() => { semesterFetchFailed = true; }).finally(() => { if (semesterView && dialog.open) renderSemesterPicker(); });
+    return semesterFetch;
+  }
   function setSemesterPreference(value) {
     defaultSemester = value?.value && value?.label ? { value: String(value.value), label: String(value.label) } : null;
     appliedSemesters = new WeakMap();
@@ -71,19 +113,28 @@
     shadow.querySelectorAll('p.empty').forEach(p => p.remove());
     shadow.querySelector('.semester-settings').hidden = false;
     const available = semesters.discover(document).flatMap(semesters.options);
-    for (const choice of available) knownSemesters.set(semesters.key(choice.label), choice);
+    if (available.length) rememberSemesters(available, { fresh: true });
+    if (!semesterFetch && (!knownSemesters.size || Date.now() - semestersUpdated > SEMESTER_CACHE_AGE)) fetchSemesters();
+    renderSemesterPicker();
+    semesterPicker.focus();
+  }
+  function renderSemesterPicker() {
+    const picked = semesterChoices[Number(semesterPicker.value)];
+    const selectedKey = semesterPicker.value !== '' && picked ? semesters.key(picked.label) : defaultSemester && semesters.key(defaultSemester.label);
     semesterChoices = [...knownSemesters.values()];
-    semesterPicker.replaceChildren(new Option('Choose a semester…', ''));
+    semesterPicker.replaceChildren(new Option(semesterChoices.length ? 'Choose a semester…' : 'Loading semesters…', ''));
     semesterChoices.forEach((choice, index) => semesterPicker.add(new Option(choice.label, String(index))));
-    const current = semesterChoices.findIndex(choice => defaultSemester && semesters.key(choice.label) === semesters.key(defaultSemester.label));
+    const current = semesterChoices.findIndex(choice => semesters.key(choice.label) === selectedKey);
     semesterPicker.value = current < 0 ? '' : String(current);
     semesterPicker.disabled = !semesterChoices.length;
+    const loading = !semesterChoices.length && semesterFetch && !semesterFetchFailed;
+    if (!semesterChoices.length && !loading) semesterPicker.options[0].textContent = 'No semesters found';
     shadow.querySelector('.save-semester').disabled = semesterPicker.value === '';
     shadow.querySelector('.clear-semester').hidden = !defaultSemester;
+    shadow.querySelector('.open-timetable').hidden = !!semesterChoices.length || loading;
     shadow.querySelector('.semester-status').textContent = semesterChoices.length ?
-      'Applied on matching pages. If unavailable, the page stays unchanged.' :
-      'Open Time Table, Attendance, or another page with a semester dropdown, then choose your default here.';
-    semesterPicker.focus();
+      'Applied on matching pages. If unavailable, the page stays unchanged.' : loading ? 'Loading semesters from VTOP…' :
+      "Couldn't load semesters automatically. Open Time Table, Attendance, or another page with a semester dropdown, then choose your default here.";
   }
   function showPages() {
     semesterView = false;
@@ -93,9 +144,10 @@
   function scanSemesters() {
     if (!preferencesReady) return;
     const selectors = semesters.discover(document);
+    let pageHasSemesters = false;
     for (const select of selectors) {
       const choices = semesters.options(select);
-      for (const choice of choices) knownSemesters.set(semesters.key(choice.label), choice);
+      if (choices.length) { pageHasSemesters = true; rememberSemesters(choices, { fresh: true }); }
       if (!defaultSemester || !choices.length) continue;
       const signature = JSON.stringify(choices);
       if (appliedSemesters.get(select) === signature) continue;
@@ -107,11 +159,11 @@
       if (globalThis.VtopPageActions) globalThis.VtopPageActions.change(select, choice.value);
       else { select.value = choice.value; select.dispatchEvent(new Event('change', { bubbles: true })); }
     }
-    if (!defaultSemester && !prompted && knownSemesters.size && !dialog.open) {
+    if (!defaultSemester && !prompted && pageHasSemesters && !dialog.open) {
       prompted = true; showSemesterSettings();
     }
   }
-  shadow.querySelector('.shortcut').textContent = /Mac|iPhone|iPad/.test(navigator.platform) ? '⌘ K' : 'Ctrl K';
+  shadow.querySelector('.shortcut').textContent = shortcut.label;
 
   function setTheme(value) {
     dark = value;
@@ -126,13 +178,22 @@
   }
   setTheme(false);
   try {
-    chrome.storage.local.get(['darkMode', 'defaultSemester']).then(settings => {
+    chrome.storage.local.get(['darkMode', 'defaultSemester', 'knownSemesters']).then(settings => {
       setTheme(settings.darkMode === true); setSemesterPreference(settings.defaultSemester);
+      if (Array.isArray(settings.knownSemesters?.list)) {
+        rememberSemesters(settings.knownSemesters.list, { persist: false });
+        semestersUpdated = Number(settings.knownSemesters.updated) || 0;
+      }
       if (settings.defaultSemester === null) prompted = true;
       preferencesReady = true; scanSemesters();
     }).catch(() => { preferencesReady = true; scanSemesters(); });
     chrome.storage.onChanged.addListener((changes, area) => {
       if (area === 'local' && changes.darkMode) setTheme(changes.darkMode.newValue === true);
+      if (area === 'local' && Array.isArray(changes.knownSemesters?.newValue?.list)) {
+        rememberSemesters(changes.knownSemesters.newValue.list, { persist: false });
+        semestersUpdated = Math.max(semestersUpdated, Number(changes.knownSemesters.newValue.updated) || 0);
+        if (semesterView && dialog.open) renderSemesterPicker();
+      }
       if (area === 'local' && changes.defaultSemester) { setSemesterPreference(changes.defaultSemester.newValue); scanSemesters(); }
     });
   } catch { preferencesReady = true; setTimeout(scanSemesters, 0); }
@@ -218,6 +279,11 @@
     if (semesterPicker.value === '' || !choice) return;
     prompted = true; saveSemesterPreference(choice); close();
   });
+  shadow.querySelector('.open-timetable').addEventListener('click', () => {
+    const route = semesterRoute(); close();
+    const element = () => discover(document).find(item => item.id === route)?.element;
+    if (globalThis.VtopPageActions) globalThis.VtopPageActions.navigate(element); else element()?.click();
+  });
   shadow.querySelector('.clear-semester').addEventListener('click', () => { prompted = true; saveSemesterPreference(null); close(); });
   shadow.querySelector('.skip-semester').addEventListener('click', () => { prompted = true; showPages(); render(); input.focus(); });
   dialog.addEventListener('close', () => { input.setAttribute('aria-expanded', 'false'); if (previousFocus?.isConnected) previousFocus.focus(); });
@@ -232,7 +298,7 @@
     }
   });
   document.addEventListener('keydown', event => {
-    if ((event.metaKey || event.ctrlKey) && !event.altKey && !event.shiftKey && event.key.toLowerCase() === 'k' && !event.isComposing && !event.repeat) {
+    if (shortcut.matches(event) && !event.isComposing && !event.repeat) {
       const tools = shadow.querySelector('.tools-dialog'); if (tools?.open) tools.close();
       event.preventDefault(); event.stopImmediatePropagation(); dialog.open ? close() : open();
     }

@@ -59,6 +59,6 @@ test('keyboard zoom shortcuts work inside the viewer and Cmd+0 fits the width ag
 test('viewer uses the shared palette, starts in the requested theme and forwards Escape/Cmd+K to the shell',async()=>{
  const {dom,w}=setup({query:'?theme=dark'}),messages=[];w.addEventListener('message',event=>messages.push(event.data));await pause();
  assert.equal(w.document.documentElement.hasAttribute('data-dark'),true);assert.match(w.document.head.querySelector('style').textContent,/--backdrop/);
- w.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',cancelable:true}));w.dispatchEvent(new w.KeyboardEvent('keydown',{key:'k',metaKey:true,cancelable:true}));await pause();
+ w.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',cancelable:true}));w.dispatchEvent(new w.KeyboardEvent('keydown',{key:'k',ctrlKey:true,cancelable:true}));await pause();
  assert.deepEqual(messages.filter(m=>m?.type==='viewer-key').map(m=>m.key),['Escape','k']);dom.window.close();
 });

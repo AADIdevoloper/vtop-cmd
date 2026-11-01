@@ -25,7 +25,12 @@
     const equivalent = choices.filter(option => key(option.label) === key(preference.label));
     return equivalent.length === 1 ? equivalent[0] : null;
   }
-  const api = { key, options, discover, match };
+  // Semester options from a fetched page fragment (e.g. Time Table), without running its scripts.
+  function fromHTML(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    return discover(doc).flatMap(options);
+  }
+  const api = { key, options, discover, match, fromHTML };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.VtopSemesters = api;
 })(globalThis);

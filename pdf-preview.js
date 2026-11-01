@@ -3,7 +3,7 @@
   if (document.getElementById('vtop-pdf-preview')) return;
   const host=document.createElement('div');host.id='vtop-pdf-preview';
   const shadow=host.attachShadow({mode:'open'});
-  const { logo, tokens, font } = globalThis.VtopBrand;
+  const { logo, tokens, font, shortcut } = globalThis.VtopBrand;
   // Same surface, header and button language as the command menu (content.js).
   shadow.innerHTML=`<style>
     :host{all:initial;color-scheme:light;${tokens.light};font:${font};color:var(--text)}
@@ -62,8 +62,7 @@
       // Keys pressed inside the viewer frame never reach this document; the viewer forwards them.
       else if(type==='viewer-key'&&event.data.key==='Escape')close();
       else if(type==='viewer-key'&&event.data.key==='k'){
-        close();const mac=/Mac|iPhone|iPad/.test(navigator.platform);
-        document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',metaKey:mac,ctrlKey:!mac,bubbles:true,cancelable:true}));
+        close();document.dispatchEvent(new KeyboardEvent('keydown',{key:'k',code:'KeyK',metaKey:shortcut.mac,ctrlKey:!shortcut.mac,bubbles:true,cancelable:true}));
       }
       return;
     }
@@ -87,5 +86,5 @@
     }catch{if(id===activeId)status.textContent='Unable to open this PDF. Retry the link, or Shift-click it to use the original download.';}
   });
   // Shortcut stays usable without placing the command menu behind an open preview.
-  document.addEventListener('keydown',event=>{if(dialog.open&&(event.ctrlKey||event.metaKey)&&event.key.toLowerCase()==='k')close();},true);
+  document.addEventListener('keydown',event=>{if(dialog.open&&shortcut.matches(event))close();},true);
 })();

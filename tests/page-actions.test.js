@@ -28,7 +28,7 @@ test('saved semester waits for page load, releases its orphaned loading overlay,
  assert.equal(oldChanges,0,'no automatic change while native page is still loading');
  requests[0].resolve();await first;await pause(120);
  assert.equal(oldChanges,1);assert.ok(w.document.querySelector('.blockOverlay'));
- w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'k',metaKey:true,bubbles:true,cancelable:true}));
+ w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true,cancelable:true}));
  const shadow=w.document.querySelector('#vtop-command-root').shadowRoot,input=shadow.querySelector('input');input.value='Marks';input.dispatchEvent(new w.Event('input'));input.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));
  await pause(80);assert.equal(clicks,0,'navigation waits for the semester request');
  requests[1].resolve();await pause(600);

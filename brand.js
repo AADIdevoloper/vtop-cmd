@@ -7,7 +7,15 @@
     dark: '--surface:#171d29;--text:#edf1fa;--muted:#97a4bb;--line:#2a3344;--hover:#242f46;--accent:#a9beff;--backdrop:#0e131c'
   };
   const font = '14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif';
-  const api = { logo, tokens, font };
+  const nav = root.navigator || {};
+  const mac = /Mac|iPhone|iPad/i.test(nav.userAgentData?.platform || nav.platform || '');
+  // ⌘K on macOS, Ctrl+K on Windows/Linux (the Windows key belongs to the OS). `code` covers non-Latin layouts.
+  const shortcut = {
+    mac, label: mac ? '⌘ K' : 'Ctrl K', modifier: mac ? '⌘' : 'Ctrl',
+    matches: event => (mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) &&
+      !event.altKey && !event.shiftKey && (event.key?.toLowerCase() === 'k' || event.code === 'KeyK')
+  };
+  const api = { logo, tokens, font, shortcut };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.VtopBrand = api;
 })(globalThis);

@@ -188,3 +188,17 @@ test('Escape and Cmd/Ctrl+K forwarded from the viewer close the preview and reop
  fromViewer(await open('pdf-1-1'),'Escape');assert.equal(dialog.open,false);assert.deepEqual(keys,[]);
  fromViewer(await open('pdf-2-2'),'k');assert.equal(dialog.open,false);assert.deepEqual(keys,['k']);dom.window.close();
 });
+test('VTOP downloadFileWithProgress: untyped blob revoked right after click still opens the viewer',async()=>{
+ const {dom,w,messages,downloads}=bridge();const revoke=w.URL.revokeObjectURL;let revoked=0;w.URL.revokeObjectURL=url=>{revoked++;revoke(url);};
+ const blob=new w.Blob(['%PDF-1.4 lecture']);const link=w.document.createElement('a');link.href=w.URL.createObjectURL(blob);link.download='Module 3';
+ w.document.body.appendChild(link);link.click();w.document.body.removeChild(link);w.URL.revokeObjectURL(link.href);await pause();
+ assert.ok(revoked>=1);assert.ok(messages.some(m=>m.kind==='ready'));assert.equal(downloads.length,0);dom.window.close();
+ const other=bridge();const sheet=other.w.document.createElement('a');sheet.href=other.w.URL.createObjectURL(new other.w.Blob(['PK spreadsheet']));sheet.download='marks.xlsx';
+ other.w.document.body.append(sheet);sheet.click();await pause();assert.equal(other.downloads.length,1);assert.equal(other.downloads[0].name,'marks.xlsx');other.dom.window.close();
+});
+test('vtopDownload-style popups with a CSRF token open the viewer; HTML responses fall back to the popup',async()=>{
+ const a=bridge();a.w.open('examinations/getQuestionPaper/12?authorizedID=X&_csrf=test');await pause();
+ assert.equal(a.opens.length,0);assert.ok(a.messages.some(m=>m.kind==='ready'));a.dom.window.close();
+ const b=bridge({body:'<html>page</html>',type:'text/html'});b.w.open('examinations/getQuestionPaper/12?authorizedID=X&_csrf=test');await pause();
+ assert.equal(b.opens.length,1);assert.ok(b.messages.some(m=>m.kind==='not-pdf'));b.dom.window.close();
+});
