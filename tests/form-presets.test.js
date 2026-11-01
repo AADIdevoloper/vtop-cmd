@@ -104,3 +104,21 @@ test('reopening an enabled preset on an already-filled page keeps the saved venu
  const second=await setup(filled,first.store);linkedActions(second);second.open();await new Promise(r=>setTimeout(r,900));
  assert.equal(copy(second,'Block').value,'block');assert.equal(copy(second,'Venue').value,'room');first.dom.window.close();second.dom.window.close();
 });
+test('resetting a field leaves it out of the preset and reopens it as Not filled',async()=>{
+ const s=await setup();s.open();s.ui.querySelector('textarea').value='Quiet study';s.ui.querySelector('textarea').dispatchEvent(new s.w.Event('input'));choose(s,'Category','study');
+ assert.match(s.ui.querySelector('.field-count').textContent,/^3 SAVED FIELDS/);
+ s.ui.querySelector('[aria-label="Reset Category"]').click();assert.equal(s.ui.querySelector('.fields select').value,'');assert.match(s.ui.querySelector('.field-count').textContent,/^2 SAVED FIELDS/);
+ s.ui.querySelector('.save').click();await pause();
+ const values=Object.values(s.store.formPresets)[0].values;assert.ok(Object.values(values).includes('Quiet study'));assert.ok(!Object.keys(values).some(key=>key.includes('category')));
+ s.w.document.querySelector('select').value='study';s.open();
+ const head=s.ui.querySelector('[aria-label="Reset Category"]').parentElement;assert.equal(s.ui.querySelector('.fields select').value,'','reset field starts empty, not from the page');
+ assert.equal(head.querySelector('.reset').hidden,true);assert.equal(head.querySelector('.unset').hidden,false);
+ choose(s,'Category','study');assert.equal(head.querySelector('.unset').hidden,true);s.dom.window.close();
+});
+test('resetting a lookup parent empties its dependents without asking VTOP',async()=>{
+ const s=await setup(linked),actions=linkedActions(s);s.open();choose(s,'School','a');await pause();choose(s,'Faculty','a1');
+ const before=actions.calls.length;s.ui.querySelector('[aria-label="Reset School"]').click();await pause();
+ assert.equal(actions.calls.length,before,'no lookup for a reset');assert.equal(copy(s,'School').value,'');assert.equal(copy(s,'Faculty').value,'');
+ s.ui.querySelector('.save').click();await pause();const values=Object.values(s.store.formPresets)[0].values;
+ assert.ok(!Object.keys(values).some(key=>/costCentreId|appliedTo/.test(key)));s.dom.window.close();
+});
