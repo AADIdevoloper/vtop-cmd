@@ -95,27 +95,28 @@
   function label(field, index) {
     return clean([...field.labels || []].map(item => {const copy=item.cloneNode(true);copy.querySelectorAll('input,select,textarea,.vtop-search-select').forEach(node=>node.remove());return copy.textContent;}).join(' ')) || field.getAttribute('aria-label') || field.placeholder || field.name || field.id || `Field ${index + 1}`;
   }
+  const { logo, tokens, font, shortcut } = globalThis.VtopBrand;
   const host = document.createElement('div'); host.id = 'vtop-form-presets';
   const shadow = host.attachShadow({mode:'open'});
   const theme = `
-    :host{all:initial;color-scheme:light;--surface:#fff;--text:#182438;--muted:#748093;--line:#e8ecf2;--hover:#f0f4fb;--accent:#3664d9;font:14px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}
-    :host([data-dark]){color-scheme:dark;--surface:#171d29;--text:#edf1fa;--muted:#97a4bb;--line:#2a3344;--hover:#242f46;--accent:#a9beff}
+    :host{all:initial;color-scheme:light;${tokens.light};font:${font};color:var(--text)}
+    :host([data-dark]){color-scheme:dark;${tokens.dark}}
     *{box-sizing:border-box}[hidden]{display:none!important}button,input,select,textarea{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
   `;
   shadow.innerHTML = `<style>${theme}${globalThis.VtopCombobox?.css || ''}
     dialog{padding:0;margin:8vh auto 0;width:min(620px,calc(100vw - 28px));max-height:84vh;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--text);box-shadow:0 24px 100px #0005;overflow:hidden}
     dialog[open]{display:flex;flex-direction:column}dialog::backdrop{background:#10182788;backdrop-filter:blur(5px)}
-    header{display:flex;gap:12px;align-items:center;padding:20px 22px 12px;flex-shrink:0}.brand{display:flex;align-items:center;gap:9px;font-size:11px;font-weight:750;letter-spacing:2px;color:var(--muted)}.brand svg{width:24px;height:24px}.spacer{flex:1}
+    header{display:flex;gap:12px;align-items:center;padding:20px 22px 12px;flex-shrink:0}.brand{display:flex;align-items:center;gap:9px;font-size:11px;font-weight:750;letter-spacing:2px;color:var(--muted)}.brand .logo{width:24px;height:24px}.spacer{flex:1}
     button{border:1px solid var(--line);border-radius:8px;background:var(--hover);color:var(--text);padding:9px 13px}.close{padding:5px 8px;font-size:12px;background:transparent;color:var(--muted)}button:hover{border-color:var(--accent)}
     .intro{padding:4px 22px 18px}h2{font-size:22px;letter-spacing:-.5px;line-height:1.3;margin:4px 0 7px}.page{font-size:13px;color:var(--muted);margin:0}.body{overflow:auto;overscroll-behavior:contain;padding:0 22px;min-height:0}
     .meta{display:flex;justify-content:space-between;gap:10px;padding:10px 22px;border-block:1px solid var(--line);font-size:11px;color:var(--muted);letter-spacing:.5px;flex-shrink:0}.fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px 16px;padding:20px 0 24px}
     .field{display:block;min-width:0}.field.wide{grid-column:1/-1}.field>span{display:block;font-size:12px;font-weight:600;margin-bottom:7px}input:not([type=checkbox]):not([type=radio]),select,textarea{width:100%;min-height:42px;padding:10px 12px;border:1px solid var(--line);border-radius:9px;background:var(--surface);color:var(--text)}input::placeholder,textarea::placeholder{color:var(--muted)}textarea{min-height:90px;resize:vertical}.check{display:flex;align-items:center;gap:10px}.check>span{margin:0}.check input{accent-color:var(--accent)}
     details{border-top:1px solid var(--line);padding:12px 0;color:var(--muted);font-size:12px}summary{cursor:pointer}details p{line-height:1.6;margin:8px 0 0}
     footer{padding:16px 22px;border-top:1px solid var(--line);background:var(--surface);flex-shrink:0}.toggle-row{display:flex;align-items:center;justify-content:space-between;gap:18px}.toggle-title{display:block;font-weight:600;font-size:13px}.toggle-help{display:block;color:var(--muted);font-size:12px;margin-top:2px}.toggle-row input{appearance:none;position:relative;flex-shrink:0;width:36px;height:21px;margin:0;border:1px solid var(--line);border-radius:20px;background:var(--muted);cursor:pointer}.toggle-row input::before{content:"";position:absolute;width:15px;height:15px;top:2px;left:2px;border-radius:50%;background:var(--surface)}.toggle-row input:checked{background:var(--accent);border-color:var(--accent)}.toggle-row input:checked::before{transform:translateX(15px)}
-    .actions{display:flex;gap:8px;margin-top:16px;align-items:center}.delete{margin-right:auto;background:transparent;color:var(--muted);font-size:12px}.cancel{margin-left:auto;background:transparent}.save{background:var(--text);color:var(--surface);border-color:var(--text);font-weight:600}.status{font-size:12px;color:var(--muted);margin:0}.status:not(:empty){margin-top:10px}
+    .actions{display:flex;gap:8px;margin-top:16px;align-items:center}.delete{margin-right:auto;background:transparent;color:var(--muted);font-size:12px}.cancel{margin-left:auto;background:transparent}.save:disabled{opacity:.5;cursor:default}.status{font-size:12px;color:var(--muted);margin:0}.status:not(:empty){margin-top:10px}
     @media(max-width:480px){dialog{margin-top:4vh;max-height:92vh}.fields{grid-template-columns:minmax(0,1fr);gap:16px}header{padding-top:16px}.intro{padding-bottom:14px}.toggle-help{max-width:220px}.actions button{padding:8px 10px}}
     @media(prefers-reduced-motion:no-preference){dialog[open]{animation:arrive .13s ease-out}.toggle-row input::before{transition:transform .15s}@keyframes arrive{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}}
-    </style><dialog aria-labelledby="title" aria-describedby="preset-page"><header><span class="brand"><span class="brand-logo"></span>VTOP / PRESETS</span><span class="spacer"></span><button type="button" class="close" aria-label="Close preset">Esc</button></header>
+    </style><dialog aria-labelledby="title" aria-describedby="preset-page"><header><span class="brand">${logo}VTOP / PRESETS</span><span class="spacer"></span><button type="button" class="close" aria-label="Close preset">Esc</button></header>
     <div class="intro"><h2 id="title">Create form preset</h2><p class="page" id="preset-page"></p></div><div class="meta"><span class="field-count"></span><span>ONLY ON THIS DEVICE</span></div>
     <div class="body"><div class="fields"></div><details><summary>About this preset</summary><p>Saved values fill this form when you return. You still review and submit it yourself.</p><p>Type in a dropdown to search its choices. School, venue and work choices load their dependent fields from VTOP. Nothing is submitted.</p><p>Passwords, security codes, hidden fields and files are excluded.</p></details></div>
     <footer><label class="toggle-row"><span><span class="toggle-title">Automatically fill this form</span><span class="toggle-help">Turn off to keep your preset without applying it.</span></span><input class="enabled" type="checkbox" role="switch" aria-label="Automatically fill this form" checked></label><div class="actions"><button type="button" class="delete">Delete preset</button><button type="button" class="cancel">Cancel</button><button type="button" class="save">Save preset</button></div><p class="status" role="status"></p></footer></dialog>`;
@@ -126,8 +127,6 @@
     const key = formKey(form), list = fields(form), preset = saved[key];
     previousFocus = button;
     editing = {key, form, controls:[], queue:[], loading:false, cancelled:false};
-    const logo = document.getElementById('vtop-command-root')?.shadowRoot?.querySelector('.brand svg');
-    $('.brand-logo').replaceChildren(...(logo ? [logo.cloneNode(true)] : []));
     $('.field-count').textContent = `${list.length} SAVED ${list.length === 1 ? 'FIELD' : 'FIELDS'}`;
     $('.body').scrollTop = 0;
     shadow.querySelector('details').open = false;
@@ -276,7 +275,7 @@
   function appliedReset() { for(const form of root()?.querySelectorAll('form') || []) for(const field of fields(form)) applied.delete(field); }
   for (const name of ['.close','.cancel']) $(name).addEventListener('click',()=>dialog.close());
   dialog.addEventListener('close',()=>{if(editing){editing.cancelled=true;editing.queue=[];}if(previousFocus?.isConnected) previousFocus.focus();});
-  document.addEventListener('keydown',event=>{if(dialog.open && (event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') dialog.close();});
+  document.addEventListener('keydown',event=>{if(dialog.open && shortcut.matches(event)) dialog.close();});
   function syncTheme() {
     const dark = document.documentElement.hasAttribute('data-vtop-command-dark');
     for (const node of [host,...bars.values(),...[...nativePickers.values()].map(record=>record.host)]) if(node.hasAttribute('data-dark') !== dark) node.toggleAttribute('data-dark',dark);
