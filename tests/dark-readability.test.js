@@ -71,3 +71,22 @@ test('dark-mode repair follows nested AJAX content and restores native colors in
   assert.equal(detail.firstChild.style.color,'red');
   dom.window.close();
 });
+test('buttons fading between colours keep their fix instead of flickering on every transitionend', async () => {
+  const dom = new JSDOM('<html data-vtop-command-dark><body style="background-color:rgb(24,33,48)"><main id="b5-pagewrapper"><button id="download" class="btn">Download</button></main></body></html>',{runScripts:'outside-only'});
+  const w = dom.window, html = w.document.documentElement;
+  w.HTMLElement.prototype.getClientRects = function(){return [{width:100,height:20}];};
+  const native = w.getComputedStyle.bind(w);
+  // Outside a scan the button is mid-transition and its animated colour looks readable; its real colour is dark.
+  w.getComputedStyle = element => {
+    const css = native(element);
+    if (element.id !== 'download') return css;
+    return new Proxy(css,{get:(target,key)=>key==='color'?(html.hasAttribute('data-vtop-readability-scan')?'rgb(30, 30, 30)':'rgb(200, 200, 200)'):Reflect.get(target,key)});
+  };
+  w.eval(fs.readFileSync(__dirname+'/../dark-readability.js','utf8'));
+  await pause();
+  const button = w.document.querySelector('#download');
+  assert.ok(button.hasAttribute('data-vtop-readable'));
+  for (let i = 0; i < 3; i++) { w.document.dispatchEvent(new w.Event('transitionend')); await pause(); assert.ok(button.hasAttribute('data-vtop-readable'),`stable after transition ${i+1}`); }
+  assert.equal(html.hasAttribute('data-vtop-readability-scan'),false);
+  dom.window.close();
+});
