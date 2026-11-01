@@ -93,9 +93,9 @@ test('assignment dashboard with a two-row header yields deadlines and upload sta
  assert.equal(api.dueState({time:now+(45*3600+59*60)*1000},now).text,'Due in 1d 21h');assert.equal(api.dueState({time:now+90*60000},now).text,'Due in 1h 30m');
  assert.equal(api.dueState({time:now-9.5*86400000},now).text,'Overdue by 9d');assert.equal(api.dueState({time:now-5*60000},now).text,'Overdue by 5m');dom.window.close();
 });
-test('Digital Assignment course list shows each course\'s deadlines beside its title, one read-only request at a time',async()=>{
+test('Digital Assignment course list shows each course\'s pending deadlines beside its title, one read-only request at a time',async()=>{
  const calls=[];let active=0,maxActive=0;
- const responses={A1:[['Case Study - I','24-Oct-2099',''],['Quiz','01-Jan-2020','']],B2:[['Report','10-Nov-2099','02 Nov 2026 09:00 AM']],C3:[]};
+ const responses={A1:[['Case Study - I','24-Oct-2099',''],['Quiz','01-Jan-2020',''],['Lab record','01-Dec-2099','02 Nov 2026 09:00 AM']],B2:[['Report','10-Nov-2099','02 Nov 2026 09:00 AM']],C3:[]};
  const {dom,w,writes}=setup(courseList(['A1','B2','C3']),{},async(url,init)=>{calls.push({url:String(url),init});active++;maxActive=Math.max(maxActive,active);await new Promise(r=>setTimeout(r,10));active--;
   return{ok:true,text:async()=>dashboardHTML(responses[init.body.get('classId')])};});
  await pause();await pause();
@@ -105,9 +105,14 @@ test('Digital Assignment course list shows each course\'s deadlines beside its t
  const badges=[...w.document.querySelectorAll('.vtop-course-deadlines')].map(host=>host.shadowRoot.textContent.replace(/\s+/g,' '));
  assert.equal(badges.length,3);
  assert.match(badges[0],/Case Study - I\s*Due in/);assert.match(badges[0],/Quiz\s*Overdue by/);assert.ok(badges[0].indexOf('Case Study')<badges[0].indexOf('Quiz'),'pending deadlines first');
- assert.match(badges[1],/Report\s*Submitted/);assert.match(badges[2],/No assignments posted/);
- const host=w.document.querySelector('.vtop-course-deadlines');assert.equal(host.parentElement.cellIndex,3,'shown in the Course Title cell');
+ assert.ok(!badges[0].includes('Lab record'),'submitted work is hidden');assert.ok(!/Submitted/.test(badges.join(' ')));
+ assert.match(badges[1],/Nothing pending/);assert.match(badges[2],/Nothing pending/);
+ const table=w.document.querySelector('table'),header=[...table.rows[0].cells].map(cell=>cell.textContent.trim());
+ assert.deepEqual(header.slice(-3),['Faculty Name','Pending assignments','Dashboard'],'own column just before Dashboard');
+ const host=w.document.querySelector('.vtop-course-deadlines');assert.equal(host.parentElement.className,'vtop-deadline-col');assert.equal(host.parentElement.cellIndex,6);
+ assert.equal(table.rows[1].cells[3].textContent.trim(),'Course 0','Course Title cell untouched');assert.equal(table.rows[1].cells.length,table.rows[0].cells.length);
  w.document.body.append(w.document.createElement('p'));await pause();assert.equal(calls.length,3,'cached, not refetched on DOM churn');
+ assert.equal(table.querySelectorAll('.vtop-deadline-col').length,4,'one header and one cell per course, added once');
  assert.equal(writes.filter(write=>JSON.stringify(write).includes('Case Study')).length,0,'deadlines are never stored');dom.window.close();
 });
 test('opening a course dashboard stops background deadline requests',async()=>{
@@ -117,10 +122,10 @@ test('opening a course dashboard stops background deadline requests',async()=>{
  w.document.querySelector('[onclick*="myFunction"]').dispatchEvent(new w.MouseEvent('click',{bubbles:true}));await pause();
  assert.deepEqual(calls,['A1']);dom.window.close();
 });
-test('course dashboard shows a countdown under each due date',async()=>{
+test('course dashboard shows a countdown under each pending due date only',async()=>{
  const {dom,w}=setup(`<main id="b5-pagewrapper">${dashboardHTML([['Case Study - I','24-Oct-2099',''],['Lab record','01-Jan-2020','21 Oct 2026 10:18 PM']])}</main>`);await pause();
- const hosts=[...w.document.querySelectorAll('.vtop-due-countdown')];assert.equal(hosts.length,2);
- assert.match(hosts[0].shadowRoot.textContent,/Due in/);assert.match(hosts[1].shadowRoot.textContent,/Submitted/);
+ const hosts=[...w.document.querySelectorAll('.vtop-due-countdown')];assert.equal(hosts.length,1);
+ assert.match(hosts[0].shadowRoot.textContent,/Due in/);
  assert.equal(hosts[0].parentElement.textContent.trim(),'24-Oct-2099');dom.window.close();
 });
 const registeredCourses=`<main id="b5-pagewrapper"><h1>Course Page - view</h1><label for="courseId">Select Registered Course</label><select id="courseId"><option value="">-- Registered Courses --</option><option value="W1">Winter Semester 2026-27 - SAMPLE101 - Course W</option><option value="F1">Fall Semester 2026-27 - SAMPLE102 - Course F</option><option value="OLD">Fall Semester 2025-26 - SAMPLE103 - Old course</option><option value="F2">Fall Semester 2026-27 - SAMPLE104 - Course F2</option></select></main>`;

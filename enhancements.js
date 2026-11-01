@@ -112,11 +112,12 @@
     for (const table of doc.querySelectorAll('table')) {
       const rows = [...table.rows].filter(row => row.closest('table') === table);
       const headers = rows[0] ? [...rows[0].cells].map(cell => clean(cell.textContent)) : [];
-      const title = headers.findIndex(h => /course title/i.test(h)), code = headers.findIndex(h => /course code/i.test(h));
-      if (title < 0 || !headers.some(h => /dashboard/i.test(h))) continue;
+      if (!headers.some(h => /course title/i.test(h)) || !headers.some(h => /dashboard/i.test(h))) continue;
       for (const row of rows.slice(1)) {
-        const classId = row.querySelector('[onclick*="myFunction"]')?.getAttribute('onclick').match(/myFunction\(\s*['"]([A-Za-z0-9]+)['"]/)?.[1];
-        if (classId && row.cells.length === headers.length) courses.push({ classId, row, titleCell: row.cells[title], code: clean(row.cells[code]?.textContent) });
+        const button = row.querySelector('[onclick*="myFunction"]');
+        const classId = button?.getAttribute('onclick').match(/myFunction\(\s*['"]([A-Za-z0-9]+)['"]/)?.[1];
+        const dashboardCell = button?.closest('td,th');
+        if (classId && dashboardCell?.parentElement === row) courses.push({ classId, row, table, headerRow: rows[0], dashboardCell });
       }
     }
     return courses;

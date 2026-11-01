@@ -108,9 +108,9 @@
   }
   // Digital Assignment Upload: deadlines beside each course, read from the dashboards VTOP's own Dashboard
   // button opens. Read-only, one request at a time, kept in memory only, and stopped once a dashboard is opened.
-  const DUE_STYLE=`:host{display:block;margin-top:6px;font:12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:inherit;text-align:left}
+  const DUE_STYLE=`:host{display:block;margin-top:2px;min-width:230px;font:12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:inherit;text-align:left}
     ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}li{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}
-    .title{opacity:.85}.date{opacity:.65;font-size:11px}.muted{opacity:.65}
+    .title{opacity:.85}.when{display:inline-flex;gap:6px;align-items:baseline;white-space:nowrap}.date{opacity:.65;font-size:11px}.muted{opacity:.65}
     .badge{border:1px solid currentColor;border-radius:999px;padding:0 7px;font-size:11px;font-weight:600;white-space:nowrap}
     .pending .badge{color:#3664d9}.soon .badge{color:#c26a00}.overdue .badge{color:#d93036}.done .badge{color:#23845a}
     :host-context(html[data-vtop-command-dark]) .pending .badge{color:#9cbcff}:host-context(html[data-vtop-command-dark]) .soon .badge{color:#ffc46b}
@@ -133,15 +133,17 @@
     const entry=deadlineCache.get(state.classId),list=state.shadow.querySelector('ul');list.replaceChildren();
     if(!entry||entry.status==='loading'){const item=document.createElement('li');item.className='muted';item.textContent='Loading deadlines…';list.append(item);return;}
     if(entry.status==='error'){const item=document.createElement('li');item.className='muted';item.textContent='Deadlines unavailable. Open the dashboard to check.';list.append(item);return;}
-    if(!entry.records.length){const item=document.createElement('li');item.className='muted';item.textContent='No assignments posted';list.append(item);return;}
-    // Upcoming work first (it is still actionable), then overdue, then submitted.
-    const now=Date.now(),rank=record=>record.submitted?2:record.time<now?1:0;
-    const records=[...entry.records].sort((a,b)=>rank(a)-rank(b)||a.time-b.time);
+    // Submitted work is done; only what still needs attention is listed.
+    const now=Date.now(),records=entry.records.filter(record=>!record.submitted);
+    if(!records.length){const item=document.createElement('li');item.className='muted';item.textContent='Nothing pending';list.append(item);return;}
+    // Upcoming work first (it is still actionable), then overdue.
+    records.sort((a,b)=>Number(a.time<now)-Number(b.time<now)||a.time-b.time);
     for(const record of records){
       const {item,badge}=line(record);
       const title=document.createElement('span');title.className='title';title.textContent=record.title;
       const date=document.createElement('span');date.className='date';date.textContent=istDate(record.time,record.dateOnly);
-      item.append(title,badge,date);list.append(item);
+      const when=document.createElement('span');when.className='when';when.append(badge,date);
+      item.append(title,when);list.append(item);
     }
   }
   async function loadDeadlines(classId,signal){
@@ -174,15 +176,25 @@
   function scanDeadlines(){
     const courses=api.assignmentCourses(document);
     for(const course of courses){
+      // A dedicated column just before Dashboard, so VTOP's own cells stay untouched.
+      if(!course.headerRow.querySelector(':scope > .vtop-deadline-col')){
+        const dashboardHeader=[...course.headerRow.cells].find(cell=>/dashboard/i.test(cell.textContent))||null;
+        const heading=document.createElement(dashboardHeader?.tagName==='TH'?'th':'td');heading.className='vtop-deadline-col';heading.textContent='Pending assignments';
+        course.headerRow.insertBefore(heading,dashboardHeader);
+      }
+      let cell=course.row.querySelector(':scope > .vtop-deadline-col');
+      if(!cell){cell=document.createElement('td');cell.className='vtop-deadline-col';course.row.insertBefore(cell,course.dashboardCell);}
       let state=deadlineStates.get(course.row);
       if(state&&state.host.isConnected&&state.classId===course.classId)continue;
-      state={...badgeHost(course.titleCell,'vtop-course-deadlines'),classId:course.classId};deadlineStates.set(course.row,state);liveBadges.add(state);
+      state={...badgeHost(cell,'vtop-course-deadlines'),classId:course.classId};deadlineStates.set(course.row,state);liveBadges.add(state);
       deadlineQueue.push({classId:course.classId,state});
     }
     if(courses.length)pumpDeadlines();
     for(const record of api.assignmentRows(document)){
       if(!record.dueCell||!record.row)continue;
       let state=dueStates.get(record.row);
+      // VTOP's Last Updated On column already shows submissions; countdowns are for pending work only.
+      if(record.submitted){if(state?.host.isConnected)state.host.remove();continue;}
       if(!state||!state.host.isConnected){state=badgeHost(record.dueCell,'vtop-due-countdown');dueStates.set(record.row,state);liveBadges.add(state);}
       state.record=record;renderDue(state);
     }
