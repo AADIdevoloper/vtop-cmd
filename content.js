@@ -7,6 +7,7 @@
   host.id = 'vtop-command-root';
   const shadow = host.attachShadow({ mode: 'open' });
   const { logo, tokens, font, shortcut } = globalThis.VtopBrand;
+  const combobox = globalThis.VtopCombobox;
   shadow.innerHTML = `
     <style>
       :host{all:initial;color-scheme:light;${tokens.light};font:${font};color:var(--text)}
@@ -22,11 +23,12 @@
       dialog::backdrop{background:#10182788;backdrop-filter:blur(5px)}
       header{display:flex;gap:12px;align-items:center;padding:20px 22px 12px}.brand{font-size:11px;font-weight:750;letter-spacing:2px;color:var(--muted)}.spacer{flex:1}
       .theme,.close,.semester-button{border:1px solid var(--line);border-radius:8px;color:var(--muted);background:transparent;padding:5px 8px;font-size:12px}
-      [hidden]{display:none!important}.semester-settings{padding:8px 22px 24px}.semester-settings h2{font-size:20px;margin:8px 0}.semester-settings p{color:var(--muted);font-size:13px}.semester-settings label{display:block;margin:18px 0 8px}.semester-settings select{width:100%;padding:12px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);font:inherit}.semester-actions{display:flex;gap:10px;margin-top:20px}.semester-actions button{padding:9px 13px;border:1px solid var(--line);border-radius:8px;background:var(--hover);color:var(--text)}.semester-actions button:disabled{opacity:.5;cursor:default}.semester-button{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+      [hidden]{display:none!important}.semester-settings{padding:8px 22px 24px}.semester-settings h2{font-size:20px;margin:8px 0}.semester-settings p{color:var(--muted);font-size:13px}.semester-settings label{display:block;margin:18px 0 8px;font-size:12px;font-weight:600}.semester-actions{display:flex;gap:10px;margin-top:20px}.semester-actions button{padding:9px 13px;border:1px solid var(--line);border-radius:8px;background:var(--hover);color:var(--text)}.semester-actions button:disabled{opacity:.5;cursor:default}.semester-button{max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
       .search{display:flex;align-items:center;gap:14px;margin:0 22px 16px}.search span{font-size:24px;color:var(--accent)}input{width:100%;padding:7px 0;border:0;outline:none;background:transparent;color:var(--text);font-size:21px;letter-spacing:-.5px}input::placeholder{color:var(--muted)}
       .meta{display:flex;justify-content:space-between;padding:10px 22px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);letter-spacing:.5px}
       .results{padding:0 10px 10px;max-height:46vh;overflow-y:auto;overscroll-behavior:contain}.option{display:flex;align-items:center;gap:13px;border-radius:10px;padding:12px;cursor:pointer;scroll-margin:8px}.option[aria-selected=true]{background:var(--hover)}.icon{display:grid;place-items:center;width:32px;height:32px;border:1px solid var(--line);border-radius:9px;color:var(--muted);flex-shrink:0}.label{font-size:14px;font-weight:550}.category{font-size:11px;color:var(--muted);margin-top:2px}.arrow{margin-left:auto;color:var(--accent);opacity:0}.option[aria-selected=true] .arrow{opacity:1}.empty{padding:30px 14px;text-align:center;color:var(--muted)}
       footer{display:flex;gap:14px;padding:13px 22px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}.local{margin-left:auto}
+      ${combobox.css}
       @media(max-width:480px){.dock{right:12px;bottom:12px}.dock .semester-chip{max-width:96px}.local{display:none}dialog{margin-top:7vh}header{padding-top:16px}input{font-size:18px}}
       @media(prefers-reduced-motion:no-preference){dialog[open]{animation:arrive .13s ease-out}@keyframes arrive{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}}
     </style>
@@ -36,7 +38,7 @@
       <section class="semester-settings" hidden aria-labelledby="semester-title">
         <h2 id="semester-title">Choose your default semester</h2>
         <p class="semester-help">We'll select this semester whenever a VTOP page asks for one. You can still change it on any page.</p>
-        <label for="default-semester">Default semester</label><select id="default-semester"></select>
+        <label for="default-semester-trigger">Default semester</label><select id="default-semester"></select>
         <p class="semester-status" role="status"></p>
         <div class="semester-actions"><button class="save-semester" type="button">Save default</button><button class="open-timetable" type="button" hidden>Open Time Table</button><button class="clear-semester" type="button">Turn off</button><button class="skip-semester" type="button">Back</button></div>
       </section>
@@ -47,13 +49,14 @@
     </dialog>`;
   document.documentElement.append(host);
   const dialog = shadow.querySelector('dialog');
-  const input = shadow.querySelector('input');
+  const input = shadow.querySelector('.search input');
   const list = shadow.querySelector('.results');
   let commands = [], filtered = [], selected = 0, recent = [], previousFocus, dark = false;
   let defaultSemester = null, preferencesReady = false, prompted = false, semesterView = false;
   let appliedSemesters = new WeakMap();
   let knownSemesters = new Map(), semestersUpdated = 0, semesterFetch = null, semesterFetchFailed = false;
   const semesterPicker = shadow.querySelector('#default-semester');
+  const semesterCombobox = combobox.create(semesterPicker, { label: 'Default semester', id: 'default-semester-trigger' });
   let semesterChoices = [];
   const SEMESTER_CACHE_AGE = 24 * 60 * 60 * 1000;
   // Remember every semester VTOP has offered so the picker works on pages without a dropdown.
@@ -119,7 +122,7 @@
     if (available.length) rememberSemesters(available, { fresh: true });
     if (!semesterFetch && (!knownSemesters.size || Date.now() - semestersUpdated > SEMESTER_CACHE_AGE)) fetchSemesters();
     renderSemesterPicker();
-    semesterPicker.focus();
+    semesterCombobox.trigger.focus();
   }
   function renderSemesterPicker() {
     const picked = semesterChoices[Number(semesterPicker.value)];
@@ -138,6 +141,7 @@
     shadow.querySelector('.semester-status').textContent = semesterChoices.length ?
       'Applied on matching pages. If unavailable, the page stays unchanged.' : loading ? 'Loading semesters from VTOP…' :
       "Couldn't load semesters automatically. Open Time Table, Attendance, or another page with a semester dropdown, then choose your default here.";
+    semesterCombobox.sync();
   }
   function showPages() {
     host.dispatchEvent(new CustomEvent('vtop-cgpa-hide'));

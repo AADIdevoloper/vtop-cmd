@@ -110,7 +110,8 @@ Live inspection in Brave verified the preset button and copied editor on Leave R
 - `search-select.js`: accessible type-to-search dropdown UI around native form controls.
 - `form-presets.js`: per-form local presets, isolated editor, enable/disable switch and automatic restoration.
 - `manifest.json`: VTOP-only content scripts and local preference permission.
-- `brand.js`: shared logo, colour tokens and platform shortcut for the menu and PDF viewer.
+- `brand.js`: shared logo, colour tokens and platform shortcut for the menu, presets and PDF viewer.
+- `combobox.js`: searchable dropdown used inside the extension's own panels (command menu, CGPA calculator, preset editor).
 - `navigation.js`: menu discovery, categories, aliases, and search ranking.
 - `semesters.js`: semester dropdown discovery and matching across page labels.
 - `content.js`: isolated Shadow DOM command palette, semester chip, preferences, and automatic semester selection.

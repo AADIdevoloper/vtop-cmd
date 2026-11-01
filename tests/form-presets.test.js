@@ -11,7 +11,7 @@ async function setup(markup=html, saved={}) {
  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
  const store=structuredClone(saved); let fail=false;
  w.chrome={storage:{local:{get:async()=>store,set:async value=>{if(fail) throw Error('storage unavailable');Object.assign(store,structuredClone(value));}}}};
- w.eval(fs.readFileSync(__dirname + '/../search-select.js','utf8'));w.eval(source);await pause();
+ for(const file of ['brand.js','combobox.js','search-select.js'])w.eval(fs.readFileSync(__dirname+'/../'+file,'utf8'));w.eval(source);await pause();
  return {dom,w,store,fail:()=>{fail=true;},ui:w.document.querySelector('#vtop-form-presets').shadowRoot,open:()=>w.document.querySelector('.vtop-form-preset-bar').shadowRoot.querySelector('button').click()};
 }
 test('editor is independent, saves local values, restores on replacement, and never submits',async()=>{
@@ -54,7 +54,7 @@ test('preset semester and course values take precedence over existing automatic 
  const markup='<main id="b5-pagewrapper"><h2>Time Table</h2><form id="query"><select id="semesterSubId"><option value="fall">Fall Semester 2026-27</option><option value="winter">Winter Semester 2026-27</option></select><select id="courseId"><option value="c1">Course 1</option><option value="c2">Course 2</option></select></form></main>';
  const s=await setup(markup);s.open();const selects=s.ui.querySelectorAll('select');selects[0].value='winter';selects[1].value='c2';s.ui.querySelector('.save').click();await pause();
  const w=s.w;w.chrome.storage.local.get=async()=>({...s.store,defaultSemester:{value:'fall',label:'Fall Semester 2026-27'},pageFilters:{'["query","winter","courseId"]':'c1'}});
- for(const file of ['brand.js','navigation.js','semesters.js','enhancements.js','content.js','enhancements-ui.js'])w.eval(fs.readFileSync(__dirname+'/../'+file,'utf8'));
+ for(const file of ['brand.js','combobox.js','navigation.js','semesters.js','enhancements.js','content.js','enhancements-ui.js'])w.eval(fs.readFileSync(__dirname+'/../'+file,'utf8'));
  await pause();assert.equal(w.document.querySelector('#semesterSubId').value,'winter');assert.equal(w.document.querySelector('#courseId').value,'c2');s.dom.window.close();
 });
 

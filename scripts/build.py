@@ -8,7 +8,7 @@ import struct
 root = Path(__file__).resolve().parent.parent
 output = root / 'dist' / 'vtop-command'
 output.mkdir(parents=True, exist_ok=True)
-files = ['manifest.json', 'brand.js', 'search-select.js', 'form-presets.js', 'navigation.js', 'semesters.js', 'enhancements.js', 'content.js', 'dark-readability.js', 'cgpa.js', 'cgpa-ui.js', 'page-enhancements.js', 'page-actions.js', 'page-runtime.js', 'enhancements-ui.js', 'pdf-bridge.js', 'pdf-preview.js', 'extension-action.js', 'pdf-viewer.html', 'pdf-viewer.css', 'pdf-viewer.mjs', 'dark.css', 'README.md', 'docs/dark-mode-audit.md']
+files = ['manifest.json', 'brand.js', 'combobox.js', 'search-select.js', 'form-presets.js', 'navigation.js', 'semesters.js', 'enhancements.js', 'content.js', 'dark-readability.js', 'cgpa.js', 'cgpa-ui.js', 'page-enhancements.js', 'page-actions.js', 'page-runtime.js', 'enhancements-ui.js', 'pdf-bridge.js', 'pdf-preview.js', 'extension-action.js', 'pdf-viewer.html', 'pdf-viewer.css', 'pdf-viewer.mjs', 'dark.css', 'README.md', 'docs/dark-mode-audit.md']
 manifest = json.loads((root / 'manifest.json').read_text())
 assert manifest['manifest_version'] == 3
 for size, name in manifest.get('icons', {}).items():

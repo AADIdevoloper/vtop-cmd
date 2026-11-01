@@ -13,7 +13,7 @@ function setup(html,settings={},fetch,session){
  w.chrome={storage:{local:{get:async()=>({defaultSemester:null,...settings}),set:async v=>writes.push(JSON.parse(JSON.stringify(v)))},onChanged:{addListener(){}},
   ...(session?{session:{get:async()=>JSON.parse(JSON.stringify(session.data)),set:async v=>{Object.assign(session.data,JSON.parse(JSON.stringify(v)));session.writes.push(JSON.parse(JSON.stringify(v)));}}}:{})}};
  if(fetch)w.fetch=fetch;
- for(const file of ['brand.js','navigation.js','semesters.js','enhancements.js','content.js','page-enhancements.js','enhancements-ui.js'])w.eval(fs.readFileSync(root+file,'utf8'));
+ for(const file of ['brand.js','combobox.js','navigation.js','semesters.js','enhancements.js','content.js','page-enhancements.js','enhancements-ui.js'])w.eval(fs.readFileSync(root+file,'utf8'));
  return{dom,w,writes,shadow:w.document.querySelector('#vtop-command-root').shadowRoot};
 }
 const pause=()=>new Promise(r=>setTimeout(r,200));
@@ -70,7 +70,7 @@ test('filters persist only supported dropdowns and restore per page/semester wit
 test('filter memory is turned off and cleared from the command menu',async()=>{
  const {dom,w,shadow,writes}=setup(`<main id="b5-pagewrapper"><h1>Marks</h1>${course}</main>`);await pause();
  const run=text=>{w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true,cancelable:true}));
-  const input=shadow.querySelector('input');input.value=text;input.dispatchEvent(new w.Event('input'));
+  const input=shadow.querySelector('.search input');input.value=text;input.dispatchEvent(new w.Event('input'));
   const label=shadow.querySelector('[role=option] .label').textContent;input.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));return label;};
  assert.equal(run('filter memory'),'Turn off filter memory');assert.equal(shadow.querySelector('dialog').open,false);
  const select=w.document.querySelector('#courseId');select.value='C1';select.dispatchEvent(new w.Event('change',{bubbles:true}));

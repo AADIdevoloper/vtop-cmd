@@ -13,6 +13,7 @@
       ],
       "js": [
         "brand.js",
+        "combobox.js",
         "search-select.js",
         "form-presets.js",
         "navigation.js",

@@ -14,12 +14,13 @@ function setup({ signedIn = true, savedDark = false, savedSemester, savedKnown, 
   if (fetch) w.fetch = fetch;
   if (platform) Object.defineProperty(w.navigator, 'platform', { value: platform, configurable: true });
   w.eval(fs.readFileSync(__dirname + '/../brand.js', 'utf8'));
+  w.eval(fs.readFileSync(__dirname + '/../combobox.js', 'utf8'));
   w.eval(fs.readFileSync(__dirname + '/../navigation.js', 'utf8'));
   w.eval(fs.readFileSync(__dirname + '/../semesters.js', 'utf8'));
   w.eval(fs.readFileSync(__dirname + '/../content.js', 'utf8'));
   const shadow = w.document.querySelector('#vtop-command-root').shadowRoot;
   const key = (value, options = {}, target = w.document) => target.dispatchEvent(new w.KeyboardEvent('keydown', { key: value, bubbles: true, cancelable: true, ...options }));
-  const query = value => { const input = shadow.querySelector('input'); input.value = value; input.dispatchEvent(new w.Event('input')); };
+  const query = value => { const input = shadow.querySelector('.search input'); input.value = value; input.dispatchEvent(new w.Event('input')); };
   return { dom, w, shadow, key, query, writes };
 }
 test('discovers hidden Bootstrap 5 and legacy menu destinations, deduplicates quick links, preserves subcategories', () => {
@@ -46,7 +47,7 @@ test('Ctrl+K toggles (Windows/Linux); keyboard selection invokes the existing pa
   w.document.querySelector('[data-url="examinations/StudentDA"]').addEventListener('click', e=>{e.preventDefault();clicks++;});
   w.document.querySelector('form').addEventListener('submit',()=>submits++);
   key('k',{ctrlKey:true}); assert.equal(shadow.querySelector('dialog').open,true);
-  query('da'); key('ArrowDown',{},shadow.querySelector('input')); key('ArrowUp',{},shadow.querySelector('input')); key('Enter',{},shadow.querySelector('input'));
+  query('da'); key('ArrowDown',{},shadow.querySelector('.search input')); key('ArrowUp',{},shadow.querySelector('.search input')); key('Enter',{},shadow.querySelector('.search input'));
   assert.equal(clicks,1); assert.equal(submits,0); assert.equal(shadow.querySelector('dialog').open,false); assert.equal(w.document.activeElement,focus);
   key('k',{ctrlKey:true}); assert.equal(shadow.querySelector('dialog').open,true);
   key('k',{ctrlKey:true}); assert.equal(shadow.querySelector('dialog').open,false);
@@ -56,7 +57,7 @@ test('re-resolves native elements after AJAX replacement and discovers newly ins
   const {dom,w,shadow,key,query}=setup(); key('k',{ctrlKey:true}); query('attendance');
   const original=w.document.querySelector('[data-url="academics/common/StudentAttendance"]');
   const replacement=original.cloneNode(true); let clicks=0; replacement.addEventListener('click',e=>{e.preventDefault(); clicks++;}); original.replaceWith(replacement);
-  key('Enter',{},shadow.querySelector('input')); assert.equal(clicks,1);
+  key('Enter',{},shadow.querySelector('.search input')); assert.equal(clicks,1);
   const page=w.document.createElement('a'); page.className='systemBtnMenu'; page.dataset.url='new/page'; page.textContent='New Page'; w.document.querySelector('.list-group').append(page);
   key('k',{ctrlKey:true}); query('new page'); assert.match(shadow.querySelector('[role=option]').textContent,/New Page/);
   dom.window.close();
@@ -67,7 +68,7 @@ test('empty results, signed-out state, and theme restore/toggle without persisti
   assert.ok(w.document.documentElement.hasAttribute('data-vtop-command-dark'));
   key('k',{ctrlKey:true}); assert.match(shadow.textContent,/Sign in to VTOP/);
   shadow.querySelector('.theme').click(); assert.ok(!w.document.documentElement.hasAttribute('data-vtop-command-dark')); assert.deepEqual(writes.map(v=>Object.keys(v)),[['darkMode']]);
-  query('zzzzzz'); assert.match(shadow.querySelector('.results').textContent,/No pages found/); key('Enter',{},shadow.querySelector('input'));
+  query('zzzzzz'); assert.match(shadow.querySelector('.results').textContent,/No pages found/); key('Enter',{},shadow.querySelector('.search input'));
   dom.window.close();
 });
 test('manifest has only local preference storage and VTOP-only content scope, all shipped files exist',()=>{
@@ -227,7 +228,7 @@ test('Home command opens VTOP home through its own header link', async () => {
   w.document.querySelector('#home').addEventListener('click',event=>{event.preventDefault();homes++;});
   key('k',{ctrlKey:true});assert.equal(shadow.querySelector('[role=option] .label').textContent,'Home','Home leads the list');
   query('home');assert.equal(shadow.querySelector('[role=option] .label').textContent,'Home');assert.equal(shadow.querySelector('[role=option] .icon').textContent,'↗');
-  key('Enter',{},shadow.querySelector('input'));assert.equal(homes,1);assert.equal(shadow.querySelector('dialog').open,false);
+  key('Enter',{},shadow.querySelector('.search input'));assert.equal(homes,1);assert.equal(shadow.querySelector('dialog').open,false);
   dom.window.close();
   const signedOut=setup({signedIn:false});signedOut.key('k',{ctrlKey:true});signedOut.query('home');
   assert.ok(![...signedOut.shadow.querySelectorAll('[role=option] .label')].some(label=>label.textContent==='Home'));signedOut.dom.window.close();
