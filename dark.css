@@ -9,7 +9,7 @@ html[data-vtop-command-dark] a:not(.btn):not(.nav-link):not(.list-group-item):no
 html[data-vtop-command-dark] :is(input:not([type=checkbox]):not([type=radio]):not([type=button]):not([type=submit]),select,textarea,.form-control,.form-select,.input-group-text,.select2-selection,.select2-dropdown) { background-color:#101925 !important; color:#e0e6f0 !important; border-color:#465571 !important; }
 html[data-vtop-command-dark] :is(input,textarea)::placeholder { color:#99a8bd !important; opacity:1; }
 html[data-vtop-command-dark] :is(input,select,textarea):disabled { background-color:#263042 !important; color:#a9b5c7 !important; }
-html[data-vtop-command-dark] :is(.table,table) { --bs-table-bg:#182130; --bs-table-color:#e0e6f0; --bs-table-striped-bg:#202b3c; --bs-table-striped-color:#e0e6f0; --bs-table-hover-bg:#2b3c55; --bs-table-hover-color:#fff; color:#e0e6f0 !important; border-color:#354055 !important; }
+html[data-vtop-command-dark] :is(.table,table) { --bs-table-bg:#182130; --bs-table-color:#e0e6f0; --bs-table-striped-bg:#202b3c; --bs-table-striped-color:#e0e6f0; --bs-table-hover-bg:#2b3c55; --bs-table-hover-color:#fff; background-color:#182130 !important; color:#e0e6f0 !important; border-color:#354055 !important; }
 html[data-vtop-command-dark] :is(th,td) { background-color:var(--bs-table-bg,#182130) !important; color:#e0e6f0 !important; border-color:#354055 !important; }
 html[data-vtop-command-dark] :is(thead th,thead td) { background-color:#26364e !important; color:#edf2fc !important; }
 html[data-vtop-command-dark] tr:nth-child(even) > td { background-color:#1d293b !important; }
