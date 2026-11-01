@@ -94,38 +94,6 @@ test('assignment dashboard with a two-row header yields deadlines and upload sta
  assert.equal(api.dueState({time:now+(45*3600+59*60)*1000},now).text,'Due in 1d 21h');assert.equal(api.dueState({time:now+90*60000},now).text,'Due in 1h 30m');
  assert.equal(api.dueState({time:now-9.5*86400000},now).text,'Overdue by 9d');assert.equal(api.dueState({time:now-5*60000},now).text,'Overdue by 5m');dom.window.close();
 });
-test('Digital Assignment course list shows each course\'s pending deadlines beside its title, one read-only request at a time',async()=>{
- const calls=[];let active=0,maxActive=0;
- const responses={A1:[['Case Study - I','24-Oct-2099',''],['Quiz','01-Jan-2020',''],['Lab record','01-Dec-2099','02 Nov 2026 09:00 AM']],B2:[['Report','10-Nov-2099','02 Nov 2026 09:00 AM']],C3:[]};
- const {dom,w,writes}=setup(courseList(['A1','B2','C3']),{},async(url,init)=>{calls.push({url:String(url),init});active++;maxActive=Math.max(maxActive,active);await new Promise(r=>setTimeout(r,10));active--;
-  return{ok:true,text:async()=>dashboardHTML(responses[init.body.get('classId')])};});
- await pause();await pause();
- assert.deepEqual(calls.map(c=>c.init.body.get('classId')),['A1','B2','C3']);assert.equal(maxActive,1);
- assert.equal(calls[0].url,'https://vtop.vit.ac.in/vtop/examinations/processDigitalAssignment');assert.equal(calls[0].init.method,'POST');
- assert.equal(calls[0].init.body.get('_csrf'),'test-csrf');assert.equal(calls[0].init.body.get('authorizedID'),'TEST-ID');
- const badges=[...w.document.querySelectorAll('.vtop-course-deadlines')].map(host=>host.shadowRoot.querySelector('ul').textContent.replace(/\s+/g,' '));
- assert.equal(badges.length,3);
- const chips=[...w.document.querySelector('.vtop-course-deadlines').shadowRoot.querySelectorAll('.chip')];
- assert.deepEqual(chips.map(chip=>chip.textContent),['1 Jan','24 Oct'],'uniform date-only chips, earliest first');
- assert.match(chips[0].dataset.tip,/^Quiz · Overdue by/);assert.match(chips[1].dataset.tip,/^Case Study - I · Due in/);
- assert.deepEqual(chips.map(chip=>chip.className),['chip overdue','chip pending']);assert.equal(chips[0].tabIndex,0);
- assert.ok(!badges[0].includes('Lab record')&&!chips.some(chip=>chip.dataset.tip.includes('Lab record')),'submitted work is hidden');
- assert.equal(badges[1].trim(),'—');assert.equal(badges[2].trim(),'—');
- const table=w.document.querySelector('table'),header=[...table.rows[0].cells].map(cell=>cell.textContent.trim());
- assert.deepEqual(header.slice(-3),['Faculty Name','Pending','Dashboard'],'own column just before Dashboard');
- const host=w.document.querySelector('.vtop-course-deadlines');assert.equal(host.parentElement.className,'vtop-deadline-col');assert.equal(host.parentElement.cellIndex,6);
- assert.equal(table.rows[1].cells[3].textContent.trim(),'Course 0','Course Title cell untouched');assert.equal(table.rows[1].cells.length,table.rows[0].cells.length);
- w.document.body.append(w.document.createElement('p'));await pause();assert.equal(calls.length,3,'cached, not refetched on DOM churn');
- assert.equal(table.querySelectorAll('.vtop-deadline-col').length,4,'one header and one cell per course, added once');
- assert.equal(writes.filter(write=>JSON.stringify(write).includes('Case Study')).length,0,'deadlines are never stored');dom.window.close();
-});
-test('opening a course dashboard stops background deadline requests',async()=>{
- const calls=[];let window_;
- const {dom,w}=setup(courseList(['A1','B2','C3']),{},(url,init)=>new Promise((resolve,reject)=>{calls.push(init.body.get('classId'));init.signal.addEventListener('abort',()=>{const error=new Error('aborted');error.name='AbortError';reject(error);});}));
- await pause();assert.deepEqual(calls,['A1']);
- w.document.querySelector('[onclick*="myFunction"]').dispatchEvent(new w.MouseEvent('click',{bubbles:true}));await pause();
- assert.deepEqual(calls,['A1']);dom.window.close();
-});
 test('course dashboard shows a countdown under each pending due date only',async()=>{
  const {dom,w}=setup(`<main id="b5-pagewrapper">${dashboardHTML([['Case Study - I','24-Oct-2099',''],['Lab record','01-Jan-2020','21 Oct 2026 10:18 PM']])}</main>`);await pause();
  const hosts=[...w.document.querySelectorAll('.vtop-due-countdown')];assert.equal(hosts.length,1);
@@ -174,27 +142,6 @@ test('semester-prefixed course labels support unnamed course controls and restor
  assert.deepEqual([...select.options].map(o=>o.value),['','F']);assert.equal(select.querySelectorAll('optgroup').length,1);
  w.document.querySelector('.vtop-course-scope').shadowRoot.querySelector('.all').click();assert.deepEqual([...select.options].map(o=>o.value),['','F','W']);assert.equal(select.querySelectorAll('optgroup').length,2);dom.window.close();
 });
-test('dashboards are cached in memory-only session storage for a random 1–5 hours, surviving page reloads',async()=>{
- const session={data:{},writes:[]},calls=[];
- const fetch=async(url,init)=>{calls.push(init.body.get('classId'));return{ok:true,text:async()=>dashboardHTML([['Case Study - I','24-Oct-2099','']])};};
- const before=Date.now();const first=setup(courseList(['A1','B2']),{},fetch,session);await pause();await pause();
- assert.deepEqual(calls,['A1','B2']);const saved=session.data.deadlineCache;assert.deepEqual(Object.keys(saved),['A1','B2']);
- for(const entry of Object.values(saved)){const life=entry.expires-before;assert.ok(life>=60*60000-1000&&life<=5*60*60000+1000,`lifetime ${life}`);}
- assert.equal(first.writes.filter(write=>JSON.stringify(write).includes('Case Study')).length,0,'never written to disk storage');first.dom.window.close();
- // A reload within the window reuses the cache without asking VTOP again.
- const second=setup(courseList(['A1','B2']),{},fetch,session);await pause();await pause();
- assert.deepEqual(calls,['A1','B2']);assert.match(second.w.document.querySelector('.vtop-course-deadlines').shadowRoot.querySelector('.chip').dataset.tip,/Case Study - I/);second.dom.window.close();
- // Expired entries are fetched again; others stay cached.
- session.data.deadlineCache.A1.expires=Date.now()-1;
- const third=setup(courseList(['A1','B2']),{},fetch,session);await pause();await pause();assert.deepEqual(calls,['A1','B2','A1']);third.dom.window.close();
-});
-test('random cache lifetimes differ between courses so refreshes do not line up',async()=>{
- const session={data:{},writes:[]},ids=['A1','B2','C3','D4','E5','F6'];
- const {dom}=setup(courseList(ids),{},async()=>({ok:true,text:async()=>dashboardHTML([])}),session);
- for(let i=0;i<6;i++)await pause();
- const expiries=Object.values(session.data.deadlineCache).map(entry=>entry.expires);
- assert.equal(expiries.length,ids.length);assert.ok(new Set(expiries.map(time=>Math.round(time/60000))).size>1);dom.window.close();
-});
 test('opening a dashboard refreshes that course in the cache, so a new upload shows up immediately',async()=>{
  const session={data:{deadlineCache:{VL2026270102272:{records:[{title:'Case Study - I',time:Date.parse('2099-10-24T23:59:59+05:30'),dateOnly:true,submitted:false}],expires:Date.now()+3*3600000}}},writes:[]};
  const html=`<main id="b5-pagewrapper">${dashboardHTML([['Case Study - I','24-Oct-2099','02 Nov 2026 09:00 AM']]).replace('<td>Course Title</td></tr>','<td>Course Title</td><td>Class Number</td></tr>').replace('<td>Y</td></tr>','<td>Y</td><td>VL2026270102272</td></tr>')}</main>`;
@@ -217,4 +164,43 @@ test('uploading a DA forgets that course\'s cached deadlines and does not re-cac
  const second=setup(html,{},async()=>{throw new Error('no fetch expected');},clicked);await pause();
  second.w.document.querySelector('#uploadDA').dispatchEvent(new second.w.MouseEvent('click',{bubbles:true}));await pause();
  assert.equal(clicked.data.deadlineCache[id],undefined,'upload button also forgets');assert.ok(clicked.data.deadlineCache[other]);second.dom.window.close();
+});
+const withClass=(id,rows)=>`<main id="b5-pagewrapper">${dashboardHTML(rows).replace('<td>Course Title</td></tr>','<td>Course Title</td><td>Class Number</td></tr>').replace('<td>Y</td></tr>',`<td>Y</td><td>${id}</td></tr>`)}</main>`;
+const noFetch=calls=>async(url)=>{calls.push(String(url));throw new Error('the extension must not request anything');};
+test('Pending column sends no requests: remembered dashboards show date chips, unopened courses say "Open to see"',async()=>{
+ const calls=[],later=Date.now()+3*3600000,record=(title,due,submitted=false)=>({title,time:Date.parse(due),dateOnly:true,submitted});
+ const session={data:{deadlineCache:{A1:{records:[record('Case Study - I','2099-10-24T23:59:59+05:30'),record('Quiz','2020-01-01T23:59:59+05:30'),record('Lab record','2099-12-01T23:59:59+05:30',true)],expires:later},B2:{records:[record('Report','2099-11-10T23:59:59+05:30',true)],expires:later}}},writes:[]};
+ const {dom,w,writes}=setup(courseList(['A1','B2','C3']),{},noFetch(calls),session);await pause();
+ assert.deepEqual(calls,[],'no background requests');
+ const table=w.document.querySelector('table'),header=[...table.rows[0].cells].map(cell=>cell.textContent.trim());
+ assert.deepEqual(header.slice(-3),['Faculty Name','Pending','Dashboard'],'own column just before Dashboard');
+ assert.equal(table.rows[1].cells[3].textContent.trim(),'Course 0','Course Title cell untouched');assert.equal(table.rows[1].cells.length,table.rows[0].cells.length);
+ const cells=[...w.document.querySelectorAll('.vtop-course-deadlines')].map(host=>host.shadowRoot.querySelector('ul'));
+ const chips=[...cells[0].querySelectorAll('.chip')];
+ assert.deepEqual(chips.map(chip=>chip.textContent),['1 Jan','24 Oct'],'uniform date-only chips, earliest first');
+ assert.match(chips[0].dataset.tip,/^Quiz · Overdue by/);assert.match(chips[1].dataset.tip,/^Case Study - I · Due in/);
+ assert.deepEqual(chips.map(chip=>chip.className),['chip overdue','chip pending']);assert.equal(chips[0].tabIndex,0);
+ assert.ok(!chips.some(chip=>chip.dataset.tip.includes('Lab record')),'submitted work is hidden');
+ assert.equal(cells[1].textContent.trim(),'—');assert.equal(cells[2].textContent.trim(),'Open to see');
+ w.document.body.append(w.document.createElement('p'));await pause();assert.deepEqual(calls,[]);
+ assert.equal(table.querySelectorAll('.vtop-deadline-col').length,4,'one header and one cell per course, added once');
+ assert.equal(writes.filter(write=>JSON.stringify(write).includes('Case Study')).length,0,'never written to disk storage');dom.window.close();
+});
+test('a dashboard you open is remembered for a random 1–5 hours, then shown in the list without any request',async()=>{
+ const calls=[],session={data:{},writes:[]},id='VL2026270102272',before=Date.now();
+ const opened=setup(withClass(id,[['Case Study - I','24-Oct-2099','']]),{},noFetch(calls),session);await pause();opened.dom.window.close();
+ const life=session.data.deadlineCache[id].expires-before;assert.ok(life>=60*60000-1000&&life<=5*60*60000+1000,`lifetime ${life}`);
+ const list=setup(courseList([id]),{},noFetch(calls),session);await pause();
+ assert.match(list.w.document.querySelector('.vtop-course-deadlines').shadowRoot.querySelector('.chip').dataset.tip,/^Case Study - I/);
+ assert.deepEqual(calls,[]);list.dom.window.close();
+ session.data.deadlineCache[id].expires=Date.now()-1;
+ const expired=setup(courseList([id]),{},noFetch(calls),session);await pause();
+ assert.equal(expired.w.document.querySelector('.vtop-course-deadlines').shadowRoot.textContent.includes('Open to see'),true,'expired entries are not shown');
+ assert.deepEqual(calls,[]);expired.dom.window.close();
+});
+test('remembered lifetimes are random per course so they do not expire together',async()=>{
+ const session={data:{},writes:[]},ids=['VL2026270100001','VL2026270100002','VL2026270100003','VL2026270100004','VL2026270100005'];
+ for(const id of ids){const page=setup(withClass(id,[['Quiz','24-Oct-2099','']]),{},noFetch([]),session);await pause();page.dom.window.close();}
+ const minutes=Object.values(session.data.deadlineCache).map(entry=>Math.round(entry.expires/60000));
+ assert.equal(minutes.length,ids.length);assert.ok(new Set(minutes).size>1);
 });

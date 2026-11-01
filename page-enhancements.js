@@ -106,8 +106,8 @@
     const message=!result?'Attendance counts unavailable.':result.percentage===null?'No classes recorded yet.':result.needed>0?`Attend ${result.needed} more ${result.needed===1?'class':'classes'} to reach 75%.`:`Can miss ${result.missable} more ${result.missable===1?'class':'classes'} at 75%.`;
     const output=state.shadow.querySelector('p');if(output.textContent!==message)output.textContent=message;
   }
-  // Digital Assignment Upload: deadlines beside each course, read from the dashboards VTOP's own Dashboard
-  // button opens. Read-only, one request at a time, kept in memory only, and stopped once a dashboard is opened.
+  // Digital Assignment Upload: a Pending column filled only from course dashboards you open yourself.
+  // The extension sends no requests of its own here; it just remembers what VTOP already showed you.
   const DUE_STYLE=`:host{display:block;margin-top:2px;font:12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:inherit;text-align:left}
     ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}li{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}.muted{opacity:.6}
     .chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -122,8 +122,8 @@
     :host-context(html[data-vtop-command-dark]) li:is(.pending,.soon,.overdue,.done){color:inherit}
     :host-context(html[data-vtop-command-dark]) .chip::after{background:#edf1fa;color:#182438}`;
   const deadlineCache=new Map(), deadlineStates=new WeakMap(), dueStates=new WeakMap(), liveBadges=new Set();
-  // Each course's dashboard is reused for a random 1–5 hours, so refreshes never line up and VTOP sees far
-  // fewer requests. Entries live in chrome.storage.session (memory only, cleared when Chrome closes), never on disk.
+  // What a dashboard showed is remembered for a random 1–5 hours per course. Entries live in
+  // chrome.storage.session (memory only, cleared when Chrome closes), never on disk.
   const MIN_CACHE=60*60000, MAX_CACHE=5*60*60000, cacheLifetime=()=>MIN_CACHE+Math.random()*(MAX_CACHE-MIN_CACHE);
   const sessionArea=(()=>{try{return chrome.storage.session||null;}catch{return null;}})();
   const cacheReady=(async()=>{
@@ -141,7 +141,6 @@
   }
   function storeDeadlines(classId,records){deadlineCache.set(classId,{status:'done',records,expires:Date.now()+cacheLifetime()});persistDeadlines();}
   const freshDeadlines=classId=>{const entry=deadlineCache.get(classId);return entry?.status==='done'&&entry.expires>Date.now()?entry:null;};
-  let deadlineQueue=[], deadlineController=null, deadlineRunning=false;
   const istDate=(time,dateOnly)=>new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',...(dateOnly?{}:{hour:'numeric',minute:'2-digit'})}).format(time);
   function badgeHost(cell,className){
     const host=document.createElement('div');host.className=className;
@@ -156,8 +155,7 @@
   }
   function renderDeadlines(state){
     const entry=deadlineCache.get(state.classId),list=state.shadow.querySelector('ul');list.replaceChildren();
-    if(!entry||entry.status==='loading'){const item=document.createElement('li');item.className='muted';item.textContent='Loading…';list.append(item);return;}
-    if(entry.status==='error'){const item=document.createElement('li');item.className='muted';item.textContent='Unavailable';item.title='Deadlines could not be loaded. Open the dashboard to check.';list.append(item);return;}
+    if(!freshDeadlines(state.classId)){const item=document.createElement('li');item.className='muted';item.textContent='Open to see';item.title="Open this course's dashboard once; its pending deadlines are remembered for a few hours.";list.append(item);return;}
     // Submitted work is done; only what still needs attention is listed, as uniform date chips.
     // The assignment and its countdown appear on hover or keyboard focus.
     const records=entry.records.filter(record=>!record.submitted).sort((a,b)=>a.time-b.time);
@@ -171,15 +169,6 @@
     }
     item.append(chips);list.append(item);
   }
-  async function loadDeadlines(classId,signal){
-    const csrf=document.querySelector('input[name="_csrf"]')?.value,id=document.querySelector('#authorizedID')?.value||document.querySelector('#authorizedIDX')?.value;
-    if(!csrf||!id)throw new Error('Not signed in');
-    const response=await fetch(new URL('examinations/processDigitalAssignment',document.baseURI),{method:'POST',credentials:'same-origin',signal,
-      headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({_csrf:csrf,classId,authorizedID:id,x:new Date().toUTCString()})});
-    const html=response.ok?await response.text():'';
-    if(!html||html.includes('___INTERNAL___RESPONSE___'))throw new Error('Unavailable');
-    return summarise(api.assignmentRows(new DOMParser().parseFromString(html,'text/html')));
-  }
   const summarise=records=>records.map(({title,label,time,dateOnly,submitted})=>({title:title||label,time,dateOnly,submitted}));
   // The open dashboard's own Class Number, so what you see there refreshes the cache (e.g. right after an upload).
   function dashboardClassId(){
@@ -191,24 +180,8 @@
     }
     return null;
   }
-  async function pumpDeadlines(){
-    if(deadlineRunning)return;deadlineRunning=true;
-    try{
-      await cacheReady;
-      while(deadlineQueue.length){
-        const {classId,state}=deadlineQueue.shift();if(!state.host.isConnected)continue;
-        if(freshDeadlines(classId)){renderDeadlines(state);continue;}
-        deadlineCache.set(classId,{status:'loading'});renderDeadlines(state);
-        deadlineController=new AbortController();
-        try{storeDeadlines(classId,await loadDeadlines(classId,deadlineController.signal));}
-        catch(error){if(error?.name==='AbortError'){deadlineCache.delete(classId);break;}deadlineCache.set(classId,{status:'error'});}
-        if(state.host.isConnected)renderDeadlines(state);
-      }
-    }finally{deadlineRunning=false;deadlineController=null;}
-  }
-  function stopDeadlines(){deadlineQueue=[];deadlineController?.abort();}
-  // An upload changes what is pending. Forget that course (so the list asks VTOP again) and stop re-caching
-  // this dashboard view, which may still show the pre-upload state until VTOP refreshes it.
+  // An upload changes what is pending. Forget that course and stop re-caching this dashboard view, which may
+  // still show the pre-upload state until VTOP refreshes it; the next dashboard visit records the new state.
   let uploadedClass=null;
   function forgetDeadlines(control){
     const classId=control?.closest?.('form')?.querySelector('input[name="classIdNumber"],input[name="classId1"]')?.value||dashboardClassId();
@@ -221,8 +194,6 @@
     const control=event.target.closest?.('button,input[type=button],input[type=submit],a');
     if(control&&dashboardClassId()&&/upload|submit|save/i.test(`${control.id} ${control.getAttribute('name')||''} ${control.textContent} ${control.value||''} ${control.getAttribute('class')||''}`))forgetDeadlines(control);
   },true);
-  // Opening a course hands the page back to VTOP; never race its own dashboard request.
-  document.addEventListener('click',event=>{if(event.target.closest?.('[onclick*="myFunction"]'))stopDeadlines();},true);
   function scanDeadlines(){
     const courses=api.assignmentCourses(document);
     for(const course of courses){
@@ -237,9 +208,8 @@
       let state=deadlineStates.get(course.row);
       if(state&&state.host.isConnected&&state.classId===course.classId)continue;
       state={...badgeHost(cell,'vtop-course-deadlines'),classId:course.classId};deadlineStates.set(course.row,state);liveBadges.add(state);
-      deadlineQueue.push({classId:course.classId,state});
+      const created=state;cacheReady.then(()=>{if(created.host.isConnected)renderDeadlines(created);});
     }
-    if(courses.length)pumpDeadlines();
     const dashboardRecords=api.assignmentRows(document),openClass=dashboardClassId();
     if(openClass!==uploadedClass)uploadedClass=null;
     if(openClass&&openClass!==uploadedClass&&[...document.querySelectorAll('td,th')].some(cell=>/^due date$/i.test(clean(cell.textContent)))){
