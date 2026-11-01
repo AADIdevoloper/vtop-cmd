@@ -3,7 +3,7 @@
   const host = document.getElementById('vtop-command-root');
   if (!host || !globalThis.VtopCgpa) return;
   const shadow = host.shadowRoot, dialog = shadow.querySelector('dialog');
-  const { points, courses, totals, validatePredictions } = globalThis.VtopCgpa;
+  const { points, courses, totals, official, previous, validatePredictions } = globalThis.VtopCgpa;
   const style = document.createElement('style');
   style.textContent = `
     dialog.cgpa-expanded{width:min(820px,calc(100vw - 28px))}
@@ -28,7 +28,7 @@
     <p>Provisional: repeat courses and special grading rules are not adjusted yet. NGCR, unrecognized grades, and zero-credit courses are excluded. Grades you choose here never change VTOP.</p>`;
   dialog.append(panel);
   // A new load or a closed panel invalidates earlier asynchronous scrape results.
-  let generation = 0, preference, history = [], current = [];
+  let generation = 0, preference, history = [], current = [], reference = null;
   let scenarios = Object.create(null), loadedTerm = 'current';
   // Keep predictions separate for different students sharing this browser profile.
   const registration = [...document.querySelectorAll('button')].map(node => node.textContent.trim().match(/^([A-Z0-9]{6,20})\s*\(STUDENT\)/i)).find(Boolean)?.[1];
@@ -63,7 +63,7 @@
   const termLabel = panel.querySelector('.cgpa-term-label');
   const status = text => { panel.querySelector('.cgpa-status').textContent = text; };
   function summary() {
-    const past = totals(history), next = totals(current);
+    const past = previous(history, reference), next = totals(current);
     const gpa = total => total.credits ? (total.points / total.credits).toFixed(2) : '—';
     const combined = { credits: past.credits + next.credits, points: past.points + next.points };
     const container = panel.querySelector('.cgpa-summary'); container.replaceChildren();
@@ -77,10 +77,13 @@
     const groups = new Map();
     for (const course of history) { if (!groups.has(course.semester)) groups.set(course.semester, []); groups.get(course.semester).push(course); }
     for (const [term, list] of groups) {
-      const total = totals(list), bubble = document.createElement('div'), caption = document.createElement('span'), value = document.createElement('b'), credits = document.createElement('span');
+      const total = totals(list);
+      // Terms with only P/NGCR results do not affect CGPA; a "—" tile would look like missing data.
+      if (!total.credits) continue;
+      const bubble = document.createElement('div'), caption = document.createElement('span'), value = document.createElement('b'), credits = document.createElement('span');
       bubble.className = 'cgpa-bubble'; caption.textContent = term; value.textContent = total.credits ? (total.points / total.credits).toFixed(2) : '—'; credits.textContent = `${total.credits} graded credits`; bubble.append(caption, value, credits); container.append(bubble);
     }
-    if (!groups.size) container.textContent = 'No previous semester data loaded.';
+    if (!container.children.length) container.textContent = groups.size ? 'No graded semesters yet.' : 'No previous semester data loaded.';
     summary();
   }
   function renderCourses() {
@@ -134,14 +137,14 @@
     throw new Error('VTOP did not return a readable page. Reload data to try again.');
   }
   async function load() {
-    const token = ++generation; await savedReady; if (token !== generation) return; termLabel.hidden = true; termPicker.disabled = true; history = []; current = []; renderHistory(); renderCourses();
+    const token = ++generation; await savedReady; if (token !== generation) return; termLabel.hidden = true; termPicker.disabled = true; history = []; current = []; reference = null; renderHistory(); renderCourses();
     panel.querySelector('.cgpa-reload').disabled = true;
     let historyWarning = '';
     try {
       status('Loading Grade History…');
       try {
         await loadPage(/grade history/i, token);
-        history = courses(document, true); renderHistory();
+        history = courses(document, true); reference = official(document); renderHistory();
         if (!history.length) historyWarning = 'Grade History could not be read; previous CGPA is unavailable. ';
       } catch (error) { if (token !== generation) return; historyWarning = `${error.message} Previous CGPA is unavailable. `; }
       status(`${historyWarning}Loading Time Table…`);

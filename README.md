@@ -51,7 +51,7 @@ are not editable.
 NGCR / Non-graded Core Requirement courses remain visible as non-graded and are
 excluded from SGPA and CGPA. S/A/B/C/D/E/F map to 10/9/8/7/6/5/0. F contributes
 credits with zero grade points. Unknown grades and zero-credit courses are excluded.
-Calculations use unrounded points and credits, rounding only the displayed GPA.
+Calculations use unrounded points and credits, rounding only the displayed GPA. The previous CGPA is checked against the CGPA VTOP shows in Grade History's CGPA Details; if the recomputed value ever differs beyond rounding, VTOP's figure is used for the projection. NGCR courses are recognised from Grade History's Course Distribution column and the Time Table's Category. Terms with only pass/fail results don't get a GPA tile.
 
 Repeat-course, replacement, and special grading rules still need refinement. Nothing is submitted to your academic record.
 
