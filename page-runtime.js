@@ -24,7 +24,7 @@
     let message;try{message=JSON.parse(event.detail);}catch{return;}
     const element=event.target;
     if(!/^action-\d+$/.test(message?.token)||!element?.isConnected)return;
-    if(message.kind==='change' ? !(element instanceof HTMLSelectElement)||![...element.options].some(o=>o.value===message.value&&!o.disabled) : message.kind!=='click'||!element.matches('a.systemB5BtnMenu[data-url],a.systemBtnMenu[data-url],a.quickB5MainMenu[data-url]')){reply(message.token,'skipped');return;}
+    if(message.kind==='change' ? !(element instanceof HTMLSelectElement)||![...element.options].some(o=>o.value===message.value&&!o.disabled) : message.kind!=='click'||!element.matches('a.systemB5BtnMenu[data-url],a.systemBtnMenu[data-url],a.quickB5MainMenu[data-url],a[onclick*="home()"]')){reply(message.token,'skipped');return;}
     if(active||requests||Number(window.jQuery?.active||0)||blockers().length){reply(message.token,'busy');return;}
     const task={token:message.token,started:Date.now(),before:new Set(document.querySelectorAll('.blockUI')),failed:false};active=task;state();
     const onError=()=>{task.failed=true;};window.addEventListener('error',onError);

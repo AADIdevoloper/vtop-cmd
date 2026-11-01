@@ -6,11 +6,12 @@ const api=require('../enhancements');
 const root=__dirname+'/../';
 const semester='<select id="semesterSubId"><option value="S1">Fall Semester 2026-27</option></select>';
 const course='<select id="courseId"><option value="">Choose course</option><option value="C1">Course A</option><option value="C2">Course B</option></select>';
-function setup(html,settings={}){
+function setup(html,settings={},fetch){
  const dom=new JSDOM(html,{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window,writes=[];
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};
  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
  w.chrome={storage:{local:{get:async()=>({defaultSemester:null,...settings}),set:async v=>writes.push(JSON.parse(JSON.stringify(v)))},onChanged:{addListener(){}}}};
+ if(fetch)w.fetch=fetch;
  for(const file of ['brand.js','navigation.js','semesters.js','enhancements.js','content.js','page-enhancements.js','enhancements-ui.js'])w.eval(fs.readFileSync(root+file,'utf8'));
  return{dom,w,writes,shadow:w.document.querySelector('#vtop-command-root').shadowRoot};
 }
@@ -48,8 +49,7 @@ test('semester chip is visible and attendance calculates per table row without s
  const row= w.document.querySelector('.vtop-row-attendance').shadowRoot;
  assert.match(row.querySelector('p').textContent,/Attend 4 more classes/);
  assert.equal(row.querySelector('input'),null);assert.match(row.textContent,/Target: 75%/);
- shadow.querySelector('.tools-launcher').click();
- assert.equal(shadow.querySelector('#attendance-course'),null);assert.ok(!shadow.querySelector('.tools-dialog').textContent.includes('Attendance calculator'));
+ assert.equal(shadow.querySelector('.tools-launcher'),null);assert.equal(shadow.querySelector('.tools-dialog'),null);
  assert.equal(writes.length,0);dom.window.close();
 });
 test('filters persist only supported dropdowns and restore per page/semester with native handlers',async()=>{
@@ -66,20 +66,62 @@ test('filters persist only supported dropdowns and restore per page/semester wit
  const transactional=setup(html.replace('Marks','Course Registration'),settings);await pause();assert.equal(transactional.w.document.querySelector('#courseId').value,'');
  for(const item of [first,second,different,unavailable,transactional])item.dom.window.close();
 });
-test('filter memory can be disabled and cleared from tools',async()=>{
+test('filter memory is turned off and cleared from the command menu',async()=>{
  const {dom,w,shadow,writes}=setup(`<main id="b5-pagewrapper"><h1>Marks</h1>${course}</main>`);await pause();
- shadow.querySelector('.tools-launcher').click();const toggle=shadow.querySelector('#remember-filters');toggle.checked=false;toggle.dispatchEvent(new w.Event('change'));
+ const run=text=>{w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true,cancelable:true}));
+  const input=shadow.querySelector('input');input.value=text;input.dispatchEvent(new w.Event('input'));
+  const label=shadow.querySelector('[role=option] .label').textContent;input.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));return label;};
+ assert.equal(run('filter memory'),'Turn off filter memory');assert.equal(shadow.querySelector('dialog').open,false);
  const select=w.document.querySelector('#courseId');select.value='C1';select.dispatchEvent(new w.Event('change',{bubbles:true}));
  assert.equal(writes.length,1);assert.equal(writes[0].rememberFilters,false);
- shadow.querySelector('.clear-filters').click();assert.deepEqual(writes.at(-1).pageFilters,{});dom.window.close();
+ assert.equal(run('filter memory'),'Turn on filter memory');
+ assert.equal(run('forget saved'),'Forget saved page filters');assert.deepEqual(writes.at(-1).pageFilters,{});dom.window.close();
 });
-test('Cmd+K moves from study tools to the command palette without leaving stacked dialogs',async()=>{
- const {dom,w,shadow}=setup('<main id="b5-pagewrapper"><h1>Marks</h1></main>');await pause();
- shadow.querySelector('.tools-launcher').click();
- w.document.dispatchEvent(new w.KeyboardEvent('keydown',{key:'k',ctrlKey:true,bubbles:true,cancelable:true}));
- assert.equal(shadow.querySelector('.tools-dialog').open,false);
- assert.equal(shadow.querySelector('dialog').open,true);
- dom.window.close();
+const dashboardHTML=(rows)=>`<table class="customTable"><tbody><tr class="fixedContent tableHeader"><td>Semester</td><td>Course Code</td><td>Course Title</td></tr><tr class="fixedContent tableContent"><td>Fall Semester 2026-27</td><td>X</td><td>Y</td></tr></tbody></table>
+<table class="customTable"><tbody><tr class="fixedContent tableHeader"><td rowspan="2">Sl.No.</td><td rowspan="2">Title</td><td rowspan="2">Max. Mark</td><td rowspan="2">Weightage %</td><td rowspan="2">Due Date</td><td rowspan="2">QP</td><td colspan="3">Document Details</td></tr>
+<tr class="fixedContent tableHeader"><td>Last Updated On</td><td>Upload/Edit</td><td>Download</td></tr></tbody><tbody>${rows.map(([title,due,updated],i)=>`<tr class="fixedContent tableContent"><td>${i+1}</td><td>${title}</td><td>20</td><td>20</td><td><span style="color:red">${due}</span></td><td><button id="downloadQuestion" class="bi bi-download"></button></td><td><span>${updated}</span></td><td></td><td></td></tr>`).join('')}</tbody></table>`;
+const courseList=ids=>`<main id="b5-pagewrapper"><form id="digitalAssignment"><input type="hidden" id="authorizedID" value="TEST-ID"><input type="hidden" name="_csrf" value="test-csrf"></form><table class="customTable"><tbody><tr class="tableHeader"><td>Sl.No</td><td>Class Nbr</td><td>Course Code</td><td>Course Title</td><td>Course Type</td><td>Faculty Name</td><td>Dashboard</td></tr>
+${ids.map((id,i)=>`<tr class="tableContent"><td>${i+1}</td><td>${id}</td><td>CODE${i}</td><td>Course ${i}</td><td>TH</td><td>Faculty</td><td><button type="button" class="btn btn-link" onclick="javascript:myFunction('${id}');"><span class="bi bi-folder-symlink-fill"></span></button></td></tr>`).join('')}</tbody></table></main>`;
+test('assignment dashboard with a two-row header yields deadlines and upload status',()=>{
+ const dom=new JSDOM(dashboardHTML([['Case Study - I','24-Oct-2099',''],['Lab record','01-Jan-2020','21 Oct 2026 10:18 PM']]));
+ const records=api.assignmentRows(dom.window.document);
+ assert.deepEqual(records.map(r=>[r.title,r.submitted,r.statusKnown]),[['Case Study - I',false,true],['Lab record',true,true]]);
+ assert.equal(records[0].dueCell.textContent.trim(),'24-Oct-2099');
+ assert.equal(api.dueState(records[1]).text,'Submitted');assert.equal(api.dueState(records[0],Date.parse('2099-10-23T00:00:00+05:30')).tone,'soon');
+ assert.equal(api.dueState({time:0,submitted:false}).tone,'overdue');
+ const now=Date.parse('2026-11-02T12:00:00+05:30');
+ assert.equal(api.dueState({time:now+(45*3600+59*60)*1000},now).text,'Due in 1d 21h');assert.equal(api.dueState({time:now+90*60000},now).text,'Due in 1h 30m');
+ assert.equal(api.dueState({time:now-9.5*86400000},now).text,'Overdue by 9d');assert.equal(api.dueState({time:now-5*60000},now).text,'Overdue by 5m');dom.window.close();
+});
+test('Digital Assignment course list shows each course\'s deadlines beside its title, one read-only request at a time',async()=>{
+ const calls=[];let active=0,maxActive=0;
+ const responses={A1:[['Case Study - I','24-Oct-2099',''],['Quiz','01-Jan-2020','']],B2:[['Report','10-Nov-2099','02 Nov 2026 09:00 AM']],C3:[]};
+ const {dom,w,writes}=setup(courseList(['A1','B2','C3']),{},async(url,init)=>{calls.push({url:String(url),init});active++;maxActive=Math.max(maxActive,active);await new Promise(r=>setTimeout(r,10));active--;
+  return{ok:true,text:async()=>dashboardHTML(responses[init.body.get('classId')])};});
+ await pause();await pause();
+ assert.deepEqual(calls.map(c=>c.init.body.get('classId')),['A1','B2','C3']);assert.equal(maxActive,1);
+ assert.equal(calls[0].url,'https://vtop.vit.ac.in/vtop/examinations/processDigitalAssignment');assert.equal(calls[0].init.method,'POST');
+ assert.equal(calls[0].init.body.get('_csrf'),'test-csrf');assert.equal(calls[0].init.body.get('authorizedID'),'TEST-ID');
+ const badges=[...w.document.querySelectorAll('.vtop-course-deadlines')].map(host=>host.shadowRoot.textContent.replace(/\s+/g,' '));
+ assert.equal(badges.length,3);
+ assert.match(badges[0],/Case Study - I\s*Due in/);assert.match(badges[0],/Quiz\s*Overdue by/);assert.ok(badges[0].indexOf('Case Study')<badges[0].indexOf('Quiz'),'pending deadlines first');
+ assert.match(badges[1],/Report\s*Submitted/);assert.match(badges[2],/No assignments posted/);
+ const host=w.document.querySelector('.vtop-course-deadlines');assert.equal(host.parentElement.cellIndex,3,'shown in the Course Title cell');
+ w.document.body.append(w.document.createElement('p'));await pause();assert.equal(calls.length,3,'cached, not refetched on DOM churn');
+ assert.equal(writes.filter(write=>JSON.stringify(write).includes('Case Study')).length,0,'deadlines are never stored');dom.window.close();
+});
+test('opening a course dashboard stops background deadline requests',async()=>{
+ const calls=[];let window_;
+ const {dom,w}=setup(courseList(['A1','B2','C3']),{},(url,init)=>new Promise((resolve,reject)=>{calls.push(init.body.get('classId'));init.signal.addEventListener('abort',()=>{const error=new Error('aborted');error.name='AbortError';reject(error);});}));
+ await pause();assert.deepEqual(calls,['A1']);
+ w.document.querySelector('[onclick*="myFunction"]').dispatchEvent(new w.MouseEvent('click',{bubbles:true}));await pause();
+ assert.deepEqual(calls,['A1']);dom.window.close();
+});
+test('course dashboard shows a countdown under each due date',async()=>{
+ const {dom,w}=setup(`<main id="b5-pagewrapper">${dashboardHTML([['Case Study - I','24-Oct-2099',''],['Lab record','01-Jan-2020','21 Oct 2026 10:18 PM']])}</main>`);await pause();
+ const hosts=[...w.document.querySelectorAll('.vtop-due-countdown')];assert.equal(hosts.length,2);
+ assert.match(hosts[0].shadowRoot.textContent,/Due in/);assert.match(hosts[1].shadowRoot.textContent,/Submitted/);
+ assert.equal(hosts[0].parentElement.textContent.trim(),'24-Oct-2099');dom.window.close();
 });
 const registeredCourses=`<main id="b5-pagewrapper"><h1>Course Page - view</h1><label for="courseId">Select Registered Course</label><select id="courseId"><option value="">-- Registered Courses --</option><option value="W1">Winter Semester 2026-27 - SAMPLE101 - Course W</option><option value="F1">Fall Semester 2026-27 - SAMPLE102 - Course F</option><option value="OLD">Fall Semester 2025-26 - SAMPLE103 - Old course</option><option value="F2">Fall Semester 2026-27 - SAMPLE104 - Course F2</option></select></main>`;
 const defaultFall={value:'S1',label:'Fall Semester 2026-27'};

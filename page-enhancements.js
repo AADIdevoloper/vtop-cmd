@@ -106,12 +106,97 @@
     const message=!result?'Attendance counts unavailable.':result.percentage===null?'No classes recorded yet.':result.needed>0?`Attend ${result.needed} more ${result.needed===1?'class':'classes'} to reach 75%.`:`Can miss ${result.missable} more ${result.missable===1?'class':'classes'} at 75%.`;
     const output=state.shadow.querySelector('p');if(output.textContent!==message)output.textContent=message;
   }
-  function scan(){scanCourses();scanAttendance();}
+  // Digital Assignment Upload: deadlines beside each course, read from the dashboards VTOP's own Dashboard
+  // button opens. Read-only, one request at a time, kept in memory only, and stopped once a dashboard is opened.
+  const DUE_STYLE=`:host{display:block;margin-top:6px;font:12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:inherit;text-align:left}
+    ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}li{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}
+    .title{opacity:.85}.date{opacity:.65;font-size:11px}.muted{opacity:.65}
+    .badge{border:1px solid currentColor;border-radius:999px;padding:0 7px;font-size:11px;font-weight:600;white-space:nowrap}
+    .pending .badge{color:#3664d9}.soon .badge{color:#c26a00}.overdue .badge{color:#d93036}.done .badge{color:#23845a}
+    :host-context(html[data-vtop-command-dark]) .pending .badge{color:#9cbcff}:host-context(html[data-vtop-command-dark]) .soon .badge{color:#ffc46b}
+    :host-context(html[data-vtop-command-dark]) .overdue .badge{color:#ff8f96}:host-context(html[data-vtop-command-dark]) .done .badge{color:#83d9ae}`;
+  const CACHE_MS=5*60000, deadlineCache=new Map(), deadlineStates=new WeakMap(), dueStates=new WeakMap(), liveBadges=new Set();
+  let deadlineQueue=[], deadlineController=null, deadlineRunning=false;
+  const istDate=(time,dateOnly)=>new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',...(dateOnly?{}:{hour:'numeric',minute:'2-digit'})}).format(time);
+  function badgeHost(cell,className){
+    const host=document.createElement('div');host.className=className;
+    const shadow=host.attachShadow({mode:'open'});shadow.innerHTML=`<style>${DUE_STYLE}</style><ul></ul>`;
+    cell.append(host);return {host,shadow};
+  }
+  function line(record){
+    const state=api.dueState(record),item=document.createElement('li');item.className=state.tone;
+    const badge=document.createElement('span');badge.className='badge';badge.textContent=state.text;
+    item.title=`Due ${istDate(record.time,false)} IST${record.dateOnly?' (date only; end of day assumed)':''}`;
+    return {item,badge};
+  }
+  function renderDeadlines(state){
+    const entry=deadlineCache.get(state.classId),list=state.shadow.querySelector('ul');list.replaceChildren();
+    if(!entry||entry.status==='loading'){const item=document.createElement('li');item.className='muted';item.textContent='Loading deadlines…';list.append(item);return;}
+    if(entry.status==='error'){const item=document.createElement('li');item.className='muted';item.textContent='Deadlines unavailable. Open the dashboard to check.';list.append(item);return;}
+    if(!entry.records.length){const item=document.createElement('li');item.className='muted';item.textContent='No assignments posted';list.append(item);return;}
+    // Upcoming work first (it is still actionable), then overdue, then submitted.
+    const now=Date.now(),rank=record=>record.submitted?2:record.time<now?1:0;
+    const records=[...entry.records].sort((a,b)=>rank(a)-rank(b)||a.time-b.time);
+    for(const record of records){
+      const {item,badge}=line(record);
+      const title=document.createElement('span');title.className='title';title.textContent=record.title;
+      const date=document.createElement('span');date.className='date';date.textContent=istDate(record.time,record.dateOnly);
+      item.append(title,badge,date);list.append(item);
+    }
+  }
+  async function loadDeadlines(classId,signal){
+    const csrf=document.querySelector('input[name="_csrf"]')?.value,id=document.querySelector('#authorizedID')?.value||document.querySelector('#authorizedIDX')?.value;
+    if(!csrf||!id)throw new Error('Not signed in');
+    const response=await fetch(new URL('examinations/processDigitalAssignment',document.baseURI),{method:'POST',credentials:'same-origin',signal,
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({_csrf:csrf,classId,authorizedID:id,x:new Date().toUTCString()})});
+    const html=response.ok?await response.text():'';
+    if(!html||html.includes('___INTERNAL___RESPONSE___'))throw new Error('Unavailable');
+    return api.assignmentRows(new DOMParser().parseFromString(html,'text/html')).map(({title,label,time,dateOnly,submitted})=>({title:title||label,time,dateOnly,submitted}));
+  }
+  async function pumpDeadlines(){
+    if(deadlineRunning)return;deadlineRunning=true;
+    try{
+      while(deadlineQueue.length){
+        const {classId,state}=deadlineQueue.shift();if(!state.host.isConnected)continue;
+        const cached=deadlineCache.get(classId);
+        if(cached?.status==='done'&&Date.now()-cached.at<CACHE_MS){renderDeadlines(state);continue;}
+        deadlineCache.set(classId,{status:'loading'});renderDeadlines(state);
+        deadlineController=new AbortController();
+        try{deadlineCache.set(classId,{status:'done',records:await loadDeadlines(classId,deadlineController.signal),at:Date.now()});}
+        catch(error){if(error?.name==='AbortError'){deadlineCache.delete(classId);break;}deadlineCache.set(classId,{status:'error'});}
+        if(state.host.isConnected)renderDeadlines(state);
+      }
+    }finally{deadlineRunning=false;deadlineController=null;}
+  }
+  function stopDeadlines(){deadlineQueue=[];deadlineController?.abort();}
+  // Opening a course hands the page back to VTOP; never race its own dashboard request.
+  document.addEventListener('click',event=>{if(event.target.closest?.('[onclick*="myFunction"]'))stopDeadlines();},true);
+  function scanDeadlines(){
+    const courses=api.assignmentCourses(document);
+    for(const course of courses){
+      let state=deadlineStates.get(course.row);
+      if(state&&state.host.isConnected&&state.classId===course.classId)continue;
+      state={...badgeHost(course.titleCell,'vtop-course-deadlines'),classId:course.classId};deadlineStates.set(course.row,state);liveBadges.add(state);
+      deadlineQueue.push({classId:course.classId,state});
+    }
+    if(courses.length)pumpDeadlines();
+    for(const record of api.assignmentRows(document)){
+      if(!record.dueCell||!record.row)continue;
+      let state=dueStates.get(record.row);
+      if(!state||!state.host.isConnected){state=badgeHost(record.dueCell,'vtop-due-countdown');dueStates.set(record.row,state);liveBadges.add(state);}
+      state.record=record;renderDue(state);
+    }
+  }
+  function renderDue(state){
+    const {item,badge}=line(state.record);item.append(badge);state.shadow.querySelector('ul').replaceChildren(item);
+  }
+  setInterval(()=>{for(const state of liveBadges){if(!state.host.isConnected){liveBadges.delete(state);continue;}state.record?renderDue(state):renderDeadlines(state);}},60000);
+  function scan(){scanCourses();scanAttendance();scanDeadlines();}
   try {
     chrome.storage.local.get('defaultSemester').then(settings=>{preference=settings.defaultSemester;ready=true;scan();}).catch(()=>{ready=true;scan();});
     chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.defaultSemester){preference=changes.defaultSemester.newValue;scanCourses();}});
   } catch {ready=true;}
-  scanAttendance();
+  scanAttendance();scanDeadlines();
   let pending;
   new MutationObserver(()=>{clearTimeout(pending);pending=setTimeout(scan,110);}).observe(document.body,{childList:true,subtree:true,characterData:true,attributes:true,attributeFilter:['disabled','value','id','name']});
 })();

@@ -12,8 +12,11 @@
       :host{all:initial;color-scheme:light;${tokens.light};font:${font};color:var(--text)}
       :host([data-dark]){color-scheme:dark;${tokens.dark}}
       *{box-sizing:border-box}button,input{font:inherit}button{cursor:pointer}button:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-      .dock{position:fixed;right:22px;bottom:22px;z-index:2147483645;display:flex;gap:8px;align-items:center;padding:10px 15px;border:1px solid var(--line);border-radius:14px;background:var(--surface);color:var(--text);box-shadow:0 4px 24px #0002;font-weight:600}
-      .logo{display:block;flex-shrink:0}.brand{display:flex;align-items:center;gap:9px}.brand .logo{width:24px;height:24px}.launcher{display:flex;align-items:center;gap:8px;border:0;background:transparent;color:var(--text);padding:0;font-weight:600}.semester-chip{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;border:1px solid var(--line);border-radius:20px;padding:4px 9px;background:var(--hover);color:var(--accent);font-size:11px}
+      .dock{position:fixed;right:18px;bottom:18px;z-index:2147483645;display:flex;gap:2px;align-items:center;padding:4px;border:1px solid var(--line);border-radius:12px;background:var(--surface);color:var(--muted);box-shadow:0 2px 10px #0000001a}
+      .dock button{display:flex;align-items:center;gap:7px;border:0;border-radius:8px;background:transparent;color:inherit;padding:4px 8px;font-size:12px;font-weight:500;white-space:nowrap}.dock button:hover{background:var(--hover);color:var(--text)}
+      .dock .launcher{padding:3px 8px 3px 3px}.dock .shortcut{border:0;padding:0;font-size:12px;color:inherit;letter-spacing:.3px}.dock .sep{width:1px;height:16px;background:var(--line)}
+      .dock .semester-chip{display:block;max-width:140px;overflow:hidden;text-overflow:ellipsis}
+      .logo{display:block;flex-shrink:0}.brand{display:flex;align-items:center;gap:9px}.brand .logo{width:24px;height:24px}
       kbd{font:11px/1.5 inherit;color:var(--muted);border:1px solid var(--line);border-radius:5px;padding:2px 5px;white-space:nowrap}
       dialog{padding:0;margin:12vh auto 0;width:min(620px,calc(100vw - 28px));max-height:78vh;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--text);box-shadow:0 24px 100px #0005;overflow:hidden}
       dialog::backdrop{background:#10182788;backdrop-filter:blur(5px)}
@@ -24,10 +27,10 @@
       .meta{display:flex;justify-content:space-between;padding:10px 22px;border-top:1px solid var(--line);font-size:11px;color:var(--muted);letter-spacing:.5px}
       .results{padding:0 10px 10px;max-height:46vh;overflow-y:auto;overscroll-behavior:contain}.option{display:flex;align-items:center;gap:13px;border-radius:10px;padding:12px;cursor:pointer;scroll-margin:8px}.option[aria-selected=true]{background:var(--hover)}.icon{display:grid;place-items:center;width:32px;height:32px;border:1px solid var(--line);border-radius:9px;color:var(--muted);flex-shrink:0}.label{font-size:14px;font-weight:550}.category{font-size:11px;color:var(--muted);margin-top:2px}.arrow{margin-left:auto;color:var(--accent);opacity:0}.option[aria-selected=true] .arrow{opacity:1}.empty{padding:30px 14px;text-align:center;color:var(--muted)}
       footer{display:flex;gap:14px;padding:13px 22px;border-top:1px solid var(--line);color:var(--muted);font-size:11px}.local{margin-left:auto}
-      @media(max-width:480px){.dock{right:12px;bottom:12px}.local{display:none}dialog{margin-top:7vh}header{padding-top:16px}input{font-size:18px}}
+      @media(max-width:480px){.dock{right:12px;bottom:12px}.dock .semester-chip{max-width:96px}.local{display:none}dialog{margin-top:7vh}header{padding-top:16px}input{font-size:18px}}
       @media(prefers-reduced-motion:no-preference){dialog[open]{animation:arrive .13s ease-out}@keyframes arrive{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}}
     </style>
-    <div class="dock"><button class="launcher" type="button" aria-label="Open VTOP command menu">${logo} <span>Jump to…</span><kbd class="shortcut"></kbd></button><button class="semester-chip" type="button" aria-label="Change default semester">Choose semester</button></div>
+    <div class="dock"><button class="launcher" type="button" aria-label="Open VTOP command menu" title="Jump to a VTOP page">${logo}<kbd class="shortcut"></kbd></button><span class="sep" aria-hidden="true"></span><button class="semester-chip" type="button" aria-label="Change default semester">Set semester</button></div>
     <dialog aria-label="VTOP command menu">
       <header><span class="brand">${logo}VTOP / COMMAND</span><span class="spacer"></span><button class="semester-button" type="button" aria-label="Choose default semester">Semester</button><button class="theme" type="button"></button><button class="close" type="button" aria-label="Close command menu">Esc</button></header>
       <section class="semester-settings" hidden aria-labelledby="semester-title">
@@ -99,7 +102,7 @@
     appliedSemesters = new WeakMap();
     shadow.querySelector('.semester-button').textContent = defaultSemester?.label || 'Semester';
     shadow.querySelector('.semester-button').title = defaultSemester ? `Default: ${defaultSemester.label}` : 'Choose default semester';
-    shadow.querySelector('.semester-chip').textContent = defaultSemester?.label.replace(/\s+Semester/i, '') || 'Choose semester';
+    shadow.querySelector('.semester-chip').textContent = defaultSemester?.label.replace(/\s+Semester/i, '') || 'Set semester';
     shadow.querySelector('.semester-chip').title = defaultSemester ? `Default semester: ${defaultSemester.label}. Click to change.` : 'Choose default semester';
   }
   function saveSemesterPreference(value) {
@@ -198,11 +201,18 @@
     });
   } catch { preferencesReady = true; setTimeout(scanSemesters, 0); }
 
+  // VTOP's header house icon: <a onclick="javascript:home();">.
+  const homeLink = () => document.querySelector('a[onclick*="home()"]');
+  function goHome() {
+    close();
+    if (globalThis.VtopPageActions) globalThis.VtopPageActions.navigate(homeLink); else homeLink()?.click();
+  }
   function allCommands() {
-    return [...commands,
+    const home = homeLink() ? [{ id: 'vtop:home', label: 'Home', category: 'VTOP', keywords: 'dashboard main start landing', navigate: true, action: goHome }] : [];
+    return [...home, ...commands,
       { id: 'vtop:semester', label: 'Choose default semester', category: defaultSemester?.label || 'Preferences', keywords: 'semester term default automatic', action: showSemesterSettings },
-      { id: 'vtop:tools', label: 'Assignment countdown & page filters', category: 'Study tools', keywords: 'due deadline digital assignment filters remember', action: () => host.dispatchEvent(new CustomEvent('vtop-tools-open')) },
-      { id: 'vtop:theme', label: 'Toggle dark mode', category: 'Appearance', keywords: 'light theme night', action: toggleTheme }];
+      { id: 'vtop:theme', label: 'Toggle dark mode', category: 'Appearance', keywords: 'light theme night', action: toggleTheme },
+      ...(globalThis.VtopCommandExtras?.() || [])];
   }
   function updateSelection() {
     [...list.children].forEach((row, index) => row.setAttribute('aria-selected', String(index === selected)));
@@ -230,7 +240,7 @@
     filtered.forEach((command, index) => {
       const row = document.createElement('div'); row.className = 'option'; row.id = `vtop-option-${index}`;
       row.setAttribute('role', 'option'); row.setAttribute('aria-selected', String(index === selected));
-      const icon = document.createElement('span'); icon.className = 'icon'; icon.textContent = command.action ? '◐' : '↗'; icon.setAttribute('aria-hidden', 'true');
+      const icon = document.createElement('span'); icon.className = 'icon'; icon.textContent = command.action && !command.navigate ? '◐' : '↗'; icon.setAttribute('aria-hidden', 'true');
       const text = document.createElement('div');
       const label = document.createElement('div'); label.className = 'label'; label.textContent = command.label;
       const category = document.createElement('div'); category.className = 'category'; category.textContent = command.category;
@@ -263,12 +273,12 @@
   try {
     chrome.runtime.onMessage.addListener((message, sender, respond) => {
       if (message?.type !== 'vtop-toggle-command-menu') return;
-      const tools = shadow.querySelector('.tools-dialog'); if (tools?.open) tools.close();
       const pdf = document.getElementById('vtop-pdf-preview')?.shadowRoot?.querySelector('dialog'); if (pdf?.open) pdf.close();
       dialog.open ? close() : open(); respond({ opened: dialog.open });
     });
   } catch { /* Preview without the extension runtime. */ }
   shadow.querySelector('.launcher').addEventListener('click', open);
+  host.addEventListener('vtop-command-done', close);
   shadow.querySelector('.semester-chip').addEventListener('click', showSemesterSettings);
   shadow.querySelector('.close').addEventListener('click', close);
   shadow.querySelector('.theme').addEventListener('click', toggleTheme);
@@ -299,10 +309,25 @@
   });
   document.addEventListener('keydown', event => {
     if (shortcut.matches(event) && !event.isComposing && !event.repeat) {
-      const tools = shadow.querySelector('.tools-dialog'); if (tools?.open) tools.close();
       event.preventDefault(); event.stopImmediatePropagation(); dialog.open ? close() : open();
     }
   }, true);
+  // VTOP's mega-menus are Bootstrap collapses that stay open until their toggle is clicked again.
+  // Close them on Escape or a click elsewhere, through the page's own toggle so Bootstrap keeps its state.
+  function closeVtopMenus() {
+    for (const box of document.querySelectorAll('.hmenubox.collapse.show')) {
+      const toggles = [...document.querySelectorAll('[data-bs-toggle="collapse"][aria-controls]')].filter(toggle => toggle.getAttribute('aria-controls') === box.id);
+      (toggles.find(toggle => toggle.matches('.hmenuItem')) || toggles[0])?.click();
+    }
+  }
+  document.addEventListener('click', event => {
+    const target = event.target;
+    if (!target?.closest || target.closest('.hmenubox, [data-bs-toggle="collapse"]')) return;
+    if (document.querySelector('.hmenubox.collapse.show')) closeVtopMenus();
+  }, true);
+  document.addEventListener('keydown', event => {
+    if (event.key === 'Escape' && !event.isComposing && !dialog.open && document.querySelector('.hmenubox.collapse.show')) closeVtopMenus();
+  });
   // VTOP swaps page fragments in place. Keep discovery current while the menu is open.
   let pending;
   new MutationObserver(() => {

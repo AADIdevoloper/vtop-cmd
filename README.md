@@ -9,7 +9,7 @@ From a source checkout, run `npm ci` followed by `npm run build` first. This cre
 1. Open `chrome://extensions` in Chrome and enable **Developer mode**.
 2. Choose **Load unpacked** and select the `dist/vtop-command` folder from this project (or extract `dist/vtop-command.zip` and select that folder).
 3. Reload VTOP and sign in normally.
-4. Press **⌘K** on macOS or **Ctrl+K** on Windows/Linux. The launcher shows the shortcut for your platform, and the key works on any keyboard layout. A **Jump to…** button also opens the menu.
+4. Press **⌘K** on macOS or **Ctrl+K** on Windows/Linux. The launcher shows the shortcut for your platform, and the key works on any keyboard layout. Clicking the launcher also opens the menu.
 
 Type a page name, category, or alias such as `DA`, `CGPA`, `timetable`, or `attendance`. Use ↑/↓ and Enter, click a result, and press Escape to close. Dark mode is available from the menu's theme button or by searching `dark mode`.
 
@@ -23,13 +23,17 @@ The **Course Page** registered-course dropdown shows only courses from the saved
 
 ## Study tools and filter memory
 
-The floating launcher shows a clickable **semester chip**. Attendance calculations appear directly on the Attendance page. Use **Tools**, or search **assignment** in the command menu, for the assignment countdown and filter settings.
+The floating launcher is a small pill with the logo, your platform's shortcut, and the default **semester**. Attendance and assignment details appear directly in VTOP's own tables.
 
 - **Attendance calculator:** open Attendance and load a semester. Each course row shows classes needed to reach 75%, or classes you can miss while staying at or above 75%, under the attendance percentage. The target is fixed at 75%. Estimates assume equally weighted future classes.
-- **Assignment countdown:** reads due/last-date columns in the currently loaded page, excludes explicitly submitted assignments, shows the next pending deadline and overdue count. Open a course's assignment detail dashboard to expose its deadlines; the extension does not crawl unopened course dashboards. A manual date/time field is also available. All deadlines use IST; date-only values assume 23:59:59 and are estimates of the cutoff.
-- **Remember filters:** enabled by default for identified course/exam query dropdowns, scoped by page and selected semester. Existing native change handlers load the results. Transactional forms, free-text fields, and unrelated dropdowns are excluded. Toggle it off or clear saved filters in Tools.
+- **Assignment deadlines:** on **Digital Assignment Upload**, each course's assignments appear under its title with a badge: *Due in …*, *Overdue by …* or *Submitted* (a file has been uploaded). Upcoming work is listed first. The extension reads each course's dashboard with the same read-only request VTOP's Dashboard button sends, one course at a time, and stops as soon as you open a dashboard yourself. Inside a dashboard, each due date shows its countdown. Deadlines use IST; date-only dates assume the end of the day. Nothing is stored; results are kept in memory for five minutes.
+- **Remember filters:** enabled by default for identified course/exam query dropdowns, scoped by page and selected semester. Existing native change handlers load the results. Transactional forms, free-text fields, and unrelated dropdowns are excluded. Use **Turn off filter memory** or **Forget saved page filters** in the command menu.
 
-The calculators read only currently loaded data and keep it in memory. Unknown date formats are ignored rather than guessed. Assignment submission status is shown as unavailable when the table provides none.
+The calculators read only loaded or fetched page data and keep it in memory. Unknown date formats are ignored rather than guessed.
+
+## VTOP menus and Home
+
+VTOP's top mega-menus close on **Esc** or a click outside them. **Home** in the command menu opens VTOP's home page through its own header link.
 
 ## PDF viewer
 
@@ -53,7 +57,7 @@ VTOP Command uses an original V-shaped navigation-arrow logo. Pin the extension 
 - Uses existing VTOP click handlers for both Bootstrap 5 and legacy navigation. Opening a destination only activates its menu entry; it does not submit the destination's form.
 - Categories and subsections distinguish repeated names, such as regular and arrear exam schedules.
 - Detects menu replacement while open and resolves the current menu element before activation.
-- Recent choices exist only in the current tab's memory. Only the theme, default semester, the list of semester names VTOP offers (up to 30), filter-memory setting, and selected query dropdown values (up to 100) are saved to `chrome.storage.local`. Attendance counts and assignment details are not persisted.
+- Recent choices exist only in the current tab's memory. Only the theme, default semester, the list of semester names VTOP offers (up to 30), filter-memory setting, and selected query dropdown values (up to 100) are saved to `chrome.storage.local`. Attendance counts and assignment deadlines are not persisted.
 - No analytics, credential storage, third-party document uploads, or broad host permissions. PDF preview fetches the original VTOP download using the existing session.
 - Theme styles are opt-in. Images and PDF pages retain original colors; the PDF viewer's chrome follows the menu theme.
 
@@ -73,10 +77,10 @@ Automated tests and local browser previews do not replace testing the installed 
 - `semesters.js`: semester dropdown discovery and matching across page labels.
 - `content.js`: isolated Shadow DOM command palette, semester chip, preferences, and automatic semester selection.
 - `enhancements.js`: attendance/deadline calculations, table readers, and filter identification.
-- `enhancements-ui.js`: assignment tools panel and local filter restoration.
+- `enhancements-ui.js`: local filter restoration and its command-menu controls.
 - `page-runtime.js`: native request tracking and page-handler coordination.
 - `page-actions.js`: serialized automatic changes and navigation priority.
-- `page-enhancements.js`: per-row Attendance calculators and default/all course filtering.
+- `page-enhancements.js`: per-row Attendance calculators, inline assignment deadlines, and default/all course filtering.
 - `pdf-bridge.js`: same-origin native download interception in the page world.
 - `pdf-preview.js`: in-page preview shell, original Download option, and temporary document cleanup.
 - `pdf-viewer.*`: local PDF.js renderer with pagination, zoom, and password support.

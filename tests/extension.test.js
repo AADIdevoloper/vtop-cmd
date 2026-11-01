@@ -213,3 +213,35 @@ test('Windows/Linux use and show Ctrl+K only; macOS uses and shows Cmd+K; physic
   mac.key('k',{metaKey:true}); assert.equal(mac.shadow.querySelector('dialog').open,true);
   mac.dom.window.close();
 });
+test('launcher is a minimal pill: logo, platform shortcut and semester only', () => {
+  const {dom,shadow}=setup({platform:'Win32'});
+  const dock=shadow.querySelector('.dock');
+  assert.deepEqual([...dock.children].map(node=>node.className),['launcher','sep','semester-chip']);
+  assert.equal(dock.querySelector('.launcher').textContent.trim(),'Ctrl K');assert.equal(dock.querySelector('.launcher').getAttribute('aria-label'),'Open VTOP command menu');
+  assert.equal(dock.querySelector('.semester-chip').textContent,'Set semester');assert.ok(!dock.textContent.includes('Tools'));
+  dom.window.close();
+});
+test('Home command opens VTOP home through its own header link', async () => {
+  const html=fs.readFileSync(__dirname + '/fixture.html', 'utf8').replace('<nav id="top-hmenu-bar">','<a id="home" href="javascript:void(0);" onclick="javascript:home();"><i class="bi bi-house-door"></i></a><nav id="top-hmenu-bar">');
+  const {dom,w,shadow,key,query}=setup({html,platform:'Win32'});let homes=0;
+  w.document.querySelector('#home').addEventListener('click',event=>{event.preventDefault();homes++;});
+  key('k',{ctrlKey:true});assert.equal(shadow.querySelector('[role=option] .label').textContent,'Home','Home leads the list');
+  query('home');assert.equal(shadow.querySelector('[role=option] .label').textContent,'Home');assert.equal(shadow.querySelector('[role=option] .icon').textContent,'↗');
+  key('Enter',{},shadow.querySelector('input'));assert.equal(homes,1);assert.equal(shadow.querySelector('dialog').open,false);
+  dom.window.close();
+  const signedOut=setup({signedIn:false});signedOut.key('k',{ctrlKey:true});signedOut.query('home');
+  assert.ok(![...signedOut.shadow.querySelectorAll('[role=option] .label')].some(label=>label.textContent==='Home'));signedOut.dom.window.close();
+});
+test('an open VTOP mega-menu closes on Escape or a click outside it, but not on clicks inside it', () => {
+  const {dom,w}=setup({platform:'Win32'});const d=w.document;
+  const box=d.querySelector('#MG0002');box.hidden=false;box.classList.add('collapse');
+  const toggle=d.createElement('a');toggle.className='hmenuItem';toggle.dataset.bsToggle='collapse';toggle.setAttribute('aria-controls','MG0002');d.querySelector('nav').prepend(toggle);
+  let toggles=0;toggle.addEventListener('click',()=>{toggles++;box.classList.toggle('show');});
+  const click=target=>target.dispatchEvent(new w.MouseEvent('click',{bubbles:true,cancelable:true}));
+  box.classList.add('show');click(box.querySelector('a'));assert.equal(box.classList.contains('show'),true,'inside click keeps it open');
+  click(d.querySelector('main h1'));assert.equal(box.classList.contains('show'),false);assert.equal(toggles,1);
+  box.classList.add('show');d.dispatchEvent(new w.KeyboardEvent('keydown',{key:'Escape',bubbles:true}));assert.equal(box.classList.contains('show'),false);
+  click(toggle);assert.equal(box.classList.contains('show'),true,'its own toggle still opens it');assert.equal(toggles,3);
+  click(d.querySelector('main h1'));assert.equal(toggles,4);click(d.querySelector('main h1'));assert.equal(toggles,4,'nothing to close');
+  dom.window.close();
+});
