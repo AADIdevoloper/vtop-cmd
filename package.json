@@ -1,6 +1,6 @@
 {
   "name": "vtop-command-menu",
-  "version": "1.4.8",
+  "version": "1.0.0",
   "private": true,
   "description": "A local, DOM-driven command menu for VTOP",
   "scripts": {

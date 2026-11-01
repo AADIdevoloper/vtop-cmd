@@ -108,13 +108,19 @@
   }
   // Digital Assignment Upload: deadlines beside each course, read from the dashboards VTOP's own Dashboard
   // button opens. Read-only, one request at a time, kept in memory only, and stopped once a dashboard is opened.
-  const DUE_STYLE=`:host{display:block;margin-top:2px;min-width:230px;font:12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:inherit;text-align:left}
-    ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}li{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}
-    .title{opacity:.85}.when{display:inline-flex;gap:6px;align-items:baseline;white-space:nowrap}.date{opacity:.65;font-size:11px}.muted{opacity:.65}
-    .badge{border:1px solid currentColor;border-radius:999px;padding:0 7px;font-size:11px;font-weight:600;white-space:nowrap}
-    .pending .badge{color:#3664d9}.soon .badge{color:#c26a00}.overdue .badge{color:#d93036}.done .badge{color:#23845a}
-    :host-context(html[data-vtop-command-dark]) .pending .badge{color:#9cbcff}:host-context(html[data-vtop-command-dark]) .soon .badge{color:#ffc46b}
-    :host-context(html[data-vtop-command-dark]) .overdue .badge{color:#ff8f96}:host-context(html[data-vtop-command-dark]) .done .badge{color:#83d9ae}`;
+  const DUE_STYLE=`:host{display:block;margin-top:2px;font:12px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:inherit;text-align:left}
+    ul{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px}li{display:flex;gap:6px;align-items:baseline;flex-wrap:wrap}.muted{opacity:.6}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .badge,.chip{border:1px solid currentColor;border-radius:6px;padding:1px 8px;font-size:11px;font-weight:600;white-space:nowrap;font-variant-numeric:tabular-nums}
+    .chip{position:relative;min-width:56px;text-align:center;cursor:default;outline:none}
+    .chip::after{content:attr(data-tip);position:absolute;right:0;bottom:calc(100% + 6px);z-index:10;padding:5px 8px;border-radius:6px;background:#182438;color:#fff;font-weight:500;white-space:nowrap;box-shadow:0 4px 14px #0003;opacity:0;transform:translateY(2px);pointer-events:none;transition:opacity .12s,transform .12s}
+    .chip:hover::after,.chip:focus-visible::after{opacity:1;transform:none}.chip:focus-visible{box-shadow:0 0 0 2px #3664d955}
+    .pending{color:#3664d9}.soon{color:#c26a00}.overdue{color:#d93036}.done{color:#23845a}
+    li.pending,li.soon,li.overdue,li.done{color:inherit}.pending .badge{color:#3664d9}.soon .badge{color:#c26a00}.overdue .badge{color:#d93036}.done .badge{color:#23845a}
+    :host-context(html[data-vtop-command-dark]) :is(.pending,.pending .badge){color:#9cbcff}:host-context(html[data-vtop-command-dark]) :is(.soon,.soon .badge){color:#ffc46b}
+    :host-context(html[data-vtop-command-dark]) :is(.overdue,.overdue .badge){color:#ff8f96}:host-context(html[data-vtop-command-dark]) :is(.done,.done .badge){color:#83d9ae}
+    :host-context(html[data-vtop-command-dark]) li:is(.pending,.soon,.overdue,.done){color:inherit}
+    :host-context(html[data-vtop-command-dark]) .chip::after{background:#edf1fa;color:#182438}`;
   const CACHE_MS=5*60000, deadlineCache=new Map(), deadlineStates=new WeakMap(), dueStates=new WeakMap(), liveBadges=new Set();
   let deadlineQueue=[], deadlineController=null, deadlineRunning=false;
   const istDate=(time,dateOnly)=>new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',...(dateOnly?{}:{hour:'numeric',minute:'2-digit'})}).format(time);
@@ -131,20 +137,20 @@
   }
   function renderDeadlines(state){
     const entry=deadlineCache.get(state.classId),list=state.shadow.querySelector('ul');list.replaceChildren();
-    if(!entry||entry.status==='loading'){const item=document.createElement('li');item.className='muted';item.textContent='Loading deadlines…';list.append(item);return;}
-    if(entry.status==='error'){const item=document.createElement('li');item.className='muted';item.textContent='Deadlines unavailable. Open the dashboard to check.';list.append(item);return;}
-    // Submitted work is done; only what still needs attention is listed.
-    const now=Date.now(),records=entry.records.filter(record=>!record.submitted);
-    if(!records.length){const item=document.createElement('li');item.className='muted';item.textContent='Nothing pending';list.append(item);return;}
-    // Upcoming work first (it is still actionable), then overdue.
-    records.sort((a,b)=>Number(a.time<now)-Number(b.time<now)||a.time-b.time);
+    if(!entry||entry.status==='loading'){const item=document.createElement('li');item.className='muted';item.textContent='Loading…';list.append(item);return;}
+    if(entry.status==='error'){const item=document.createElement('li');item.className='muted';item.textContent='Unavailable';item.title='Deadlines could not be loaded. Open the dashboard to check.';list.append(item);return;}
+    // Submitted work is done; only what still needs attention is listed, as uniform date chips.
+    // The assignment and its countdown appear on hover or keyboard focus.
+    const records=entry.records.filter(record=>!record.submitted).sort((a,b)=>a.time-b.time);
+    if(!records.length){const item=document.createElement('li');item.className='muted';item.textContent='—';item.title='Nothing pending';item.setAttribute('aria-label','Nothing pending');list.append(item);return;}
+    const item=document.createElement('li'),chips=document.createElement('div');chips.className='chips';
     for(const record of records){
-      const {item,badge}=line(record);
-      const title=document.createElement('span');title.className='title';title.textContent=record.title;
-      const date=document.createElement('span');date.className='date';date.textContent=istDate(record.time,record.dateOnly);
-      const when=document.createElement('span');when.className='when';when.append(badge,date);
-      item.append(title,when);list.append(item);
+      const due=api.dueState(record),chip=document.createElement('span');
+      chip.className=`chip ${due.tone}`;chip.tabIndex=0;chip.textContent=istDate(record.time,true);
+      chip.dataset.tip=`${record.title} · ${due.text}`;chip.setAttribute('aria-label',`${record.title}, ${due.text}, due ${istDate(record.time,record.dateOnly)}`);
+      chips.append(chip);
     }
+    item.append(chips);list.append(item);
   }
   async function loadDeadlines(classId,signal){
     const csrf=document.querySelector('input[name="_csrf"]')?.value,id=document.querySelector('#authorizedID')?.value||document.querySelector('#authorizedIDX')?.value;
@@ -179,7 +185,7 @@
       // A dedicated column just before Dashboard, so VTOP's own cells stay untouched.
       if(!course.headerRow.querySelector(':scope > .vtop-deadline-col')){
         const dashboardHeader=[...course.headerRow.cells].find(cell=>/dashboard/i.test(cell.textContent))||null;
-        const heading=document.createElement(dashboardHeader?.tagName==='TH'?'th':'td');heading.className='vtop-deadline-col';heading.textContent='Pending assignments';
+        const heading=document.createElement(dashboardHeader?.tagName==='TH'?'th':'td');heading.className='vtop-deadline-col';heading.textContent='Pending';
         course.headerRow.insertBefore(heading,dashboardHeader);
       }
       let cell=course.row.querySelector(':scope > .vtop-deadline-col');
