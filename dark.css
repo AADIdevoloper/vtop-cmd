@@ -13,6 +13,8 @@ html[data-vtop-command-dark] :is(.table,table) { --bs-table-bg:#182130; --bs-tab
 html[data-vtop-command-dark] :is(th,td) { background-color:var(--bs-table-bg,#182130) !important; color:#e0e6f0 !important; border-color:#354055 !important; }
 html[data-vtop-command-dark] :is(thead th,thead td) { background-color:#26364e !important; color:#edf2fc !important; }
 html[data-vtop-command-dark] tr:nth-child(even) > td { background-color:#1d293b !important; }
+/* VTOP's nested tables (Marks and similar) force light #ccc borders with !important; outrank them. */
+html[data-vtop-command-dark] :is(.customTable,.customTable-level1) > tbody > tr > :is(td,th),html[data-vtop-command-dark] .customTable-level1 :is(tr.tableHeader-level1,tr.tableContent-level1) > td { border-color:#354055 !important; }
 /* Time Table marks registered slots with a cell colour; keep them distinct from free slots and headings. */
 html[data-vtop-command-dark] #timeTableStyle td[bgcolor]:not([bgcolor="#FFFFFF" i]):not([bgcolor="#e2e2e2" i]) { background-color:#2a3f6e !important; color:#f3f6ff !important; font-weight:600; box-shadow:inset 0 0 0 1px #5675c4; }
 html[data-vtop-command-dark] :is(.dropdown-item,.list-group-item-action,.hmenuItem):hover { background-color:#2d405d !important; color:#fff !important; }
