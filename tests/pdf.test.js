@@ -1,0 +1,111 @@
+const {test}=require('node:test');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+const {JSDOM}=require('jsdom');
+const source=fs.readFileSync(__dirname+'/../pdf-bridge.js','utf8');
+const pause=()=>new Promise(resolve=>setTimeout(resolve,35));
+function bridge({body='%PDF-1.4\nmock',type='application/pdf',ok=true}={}){
+ const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window;
+ const calls=[],messages=[],opens=[],downloads=[];
+ let blobNumber=0;
+ w.Blob=Blob;w.fetch=async(url,init)=>{calls.push({url,init});return{ok,blob:async()=>new Blob([body],{type}),headers:{get:()=>"attachment; filename*=UTF-8''Lecture%20notes.pdf"}};};
+ w.URL.createObjectURL=()=>`blob:https://vtop.vit.ac.in/${++blobNumber}`;w.URL.revokeObjectURL=()=>{};
+ w.open=(...args)=>opens.push(args);
+ w.HTMLAnchorElement.prototype.click=function(){downloads.push({href:this.href,name:this.download});};
+ w.HTMLFormElement.prototype.submit=function(){calls.push({native:true});};
+ w.addEventListener('message',event=>messages.push(event.data));w.eval(source);
+ return{dom,w,calls,messages,opens,downloads};
+}
+test('VTOP window.open download becomes a PDF preview using original authenticated GET',async()=>{
+ const {dom,w,calls,messages,opens}=bridge();
+ w.open('downloadSpotLightViewFile/820?token=test');await pause();
+ assert.equal(opens.length,0);assert.equal(calls.length,1);assert.equal(calls[0].init.credentials,'same-origin');
+ assert.ok(calls[0].url.includes('token=test'));
+ const ready=messages.find(m=>m.kind==='ready');assert.ok(ready);assert.equal(ready.filename,'Lecture notes.pdf');
+ assert.ok(!JSON.stringify(messages).includes('token=test'));dom.window.close();
+});
+test('external URLs and ordinary VTOP navigation retain native browser behavior',async()=>{
+ const {dom,w,calls,opens}=bridge();w.open('https://example.com/file.pdf');w.open('/vtop/academics/home');
+ assert.equal(opens.length,2);assert.equal(calls.length,0);dom.window.close();
+});
+test('PDF blob anchors are intercepted even when detached; non-PDF responses keep download behavior',async()=>{
+ const a=bridge();const anchor=a.w.document.createElement('a');anchor.href=a.w.URL.createObjectURL(new a.w.Blob(['%PDF-1.4'],{type:'application/pdf'}));anchor.download='notes.pdf';anchor.click();await pause();
+ assert.ok(a.messages.some(m=>m.kind==='ready'));assert.equal(a.downloads.length,0);a.dom.window.close();
+ const b=bridge({body:'spreadsheet',type:'application/vnd.ms-excel'});b.w.open('/vtop/download/report');await pause();
+ assert.equal(b.downloads.length,1);assert.ok(b.messages.some(m=>m.kind==='not-pdf'));b.dom.window.close();
+});
+test('POST download forms retain fields; non-download/file-upload forms are left alone',async()=>{
+ const {dom,w,calls,messages}=bridge();
+ const form=w.document.createElement('form');form.method='POST';form.action='/vtop/download/document';form.innerHTML='<input name="_csrf" value="test-only"><input name="course" value="sample">';w.document.body.append(form);form.submit();await pause();
+ assert.equal(calls[0].init.method,'POST');assert.equal(calls[0].init.body.get('_csrf'),'test-only');assert.ok(messages.some(m=>m.kind==='ready'));
+ form.action='/vtop/upload';form.submit();assert.equal(calls.at(-1).native,true);
+ form.action='/vtop/download/upload';form.innerHTML='<input type="file">';form.submit();assert.equal(calls.at(-1).native,true);dom.window.close();
+});
+test('expired sessions show an error instead of downloading HTML as PDF',async()=>{
+ const {dom,w,messages,downloads}=bridge({body:'<html>Sign in</html>',type:'text/html'});w.open('/vtop/download/file');await pause();
+ assert.ok(messages.some(m=>m.kind==='error'));assert.equal(downloads.length,0);dom.window.close();
+});
+test('PDF resources are bundled locally and MAIN interception is scoped only to VTOP',()=>{
+ const manifest=JSON.parse(fs.readFileSync(__dirname+'/../manifest.json'));
+ const main=manifest.content_scripts.find(script=>script.world==='MAIN');assert.deepEqual(main.matches,['https://vtop.vit.ac.in/vtop/*']);assert.equal(main.run_at,'document_start');
+ assert.deepEqual(manifest.permissions,['storage']);
+ for(const file of ['pdf-viewer.html','pdf-viewer.mjs','pdf-viewer.css'])assert.ok(fs.existsSync(__dirname+'/../'+file));
+ assert.ok(!fs.readFileSync(__dirname+'/../pdf-viewer.html','utf8').includes('https://'));
+});
+test('Shift-click bypasses the viewer for native javascript download helpers',()=>{
+ const {dom,w,opens,calls}=bridge();const anchor=w.document.createElement('a');anchor.href='javascript:void(0)';anchor.addEventListener('click',()=>w.open('/vtop/download/original'));w.document.body.append(anchor);
+ anchor.dispatchEvent(new w.MouseEvent('click',{bubbles:true,cancelable:true,shiftKey:true}));
+ assert.equal(opens.length,1);assert.equal(calls.length,0);dom.window.close();
+});
+test('preview ignores forged origins and non-local blob references',()=>{
+ const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window;
+ w.chrome={runtime:{getURL:name=>'chrome-extension://test-extension/'+name}};
+ w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
+ let fetched=0;w.fetch=async()=>{fetched++;throw new Error('Should not fetch');};
+ w.eval(fs.readFileSync(__dirname+'/../pdf-preview.js','utf8'));
+ const send=(origin,kind,extra={})=>w.dispatchEvent(new w.MessageEvent('message',{source:w,origin,data:{source:'vtop-command-pdf',id:'pdf-1-1',kind,...extra}}));
+ send('https://attacker.example','loading');const dialog=w.document.querySelector('#vtop-pdf-preview').shadowRoot.querySelector('dialog');assert.equal(dialog.open,false);
+ send(w.location.origin,'loading');assert.equal(dialog.open,true);
+ send(w.location.origin,'ready',{blobUrl:'https://attacker.example/private.pdf'});assert.equal(fetched,0);dom.window.close();
+});
+test('preview Download keeps original PDF bytes and filename, and Close revokes temporary data',async()=>{
+ const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window;
+ const bytes=new TextEncoder().encode('%PDF-1.4\noriginal bytes').buffer,revoked=[];
+ w.chrome={runtime:{getURL:name=>'chrome-extension://test-extension/'+name}};
+ w.TextDecoder=TextDecoder;w.Blob=Blob;w.fetch=async()=>({arrayBuffer:async()=>bytes});
+ w.URL.createObjectURL=()=> 'blob:https://vtop.vit.ac.in/original-copy';w.URL.revokeObjectURL=url=>revoked.push(url);
+ w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
+ w.eval(fs.readFileSync(__dirname+'/../pdf-preview.js','utf8'));
+ const send=(kind,extra={})=>w.dispatchEvent(new w.MessageEvent('message',{source:w,origin:w.location.origin,data:{source:'vtop-command-pdf',id:'pdf-1-1',kind,...extra}}));
+ send('loading');send('ready',{blobUrl:'blob:https://vtop.vit.ac.in/native-document',filename:'Lecture.pdf'});await pause();
+ const shadow=w.document.querySelector('#vtop-pdf-preview').shadowRoot,download=shadow.querySelector('a');
+ assert.equal(download.hidden,false);assert.equal(download.download,'Lecture.pdf');assert.equal(download.href,'blob:https://vtop.vit.ac.in/original-copy');
+ shadow.querySelector('button').click();assert.equal(download.hidden,true);assert.deepEqual(revoked,['blob:https://vtop.vit.ac.in/original-copy']);dom.window.close();
+});
+test('real Curriculum button submits curriculDown form to the viewer once with authenticated POST fields',async()=>{
+ const {dom,w,calls,messages}=bridge();const form=w.document.createElement('form');form.id='curriculumDownloadForm';form.method='post';form.action='academics/curriculDown/';
+ form.innerHTML='<input type="hidden" name="_csrf" value="mock-csrf"><input type="hidden" name="authorizedID" value="mock-user"><input type="hidden" name="regNo" value="mock-registration">';
+ const button=w.document.createElement('button');button.type='button';button.id='curriculumDownload';button.textContent='Download Curriculum as PDF';button.addEventListener('click',()=>form.submit());w.document.body.append(form,button);
+ button.dispatchEvent(new w.MouseEvent('click',{bubbles:true,cancelable:true}));await pause();
+ assert.equal(calls.length,1);assert.equal(calls[0].url,'https://vtop.vit.ac.in/vtop/academics/curriculDown/');assert.equal(calls[0].init.method,'POST');assert.equal(calls[0].init.body.get('regNo'),'mock-registration');assert.equal(calls[0].init.body.get('_csrf'),'mock-csrf');assert.ok(messages.some(message=>message.kind==='ready'));dom.window.close();
+});
+test('PDF-labelled controls cover opaque form and window.open endpoints without changing unrelated forms',async()=>{
+ const a=bridge();const form=a.w.document.createElement('form');form.method='post';form.action='academics/render/42';form.innerHTML='<input name="report" value="sample">';
+ const button=a.w.document.createElement('button');button.textContent='Download as PDF';button.addEventListener('click',()=>form.submit());a.w.document.body.append(form,button);button.dispatchEvent(new a.w.MouseEvent('click',{bubbles:true,cancelable:true}));await pause();
+ assert.equal(a.calls[0].init.method,'POST');assert.ok(a.messages.some(message=>message.kind==='ready'));a.dom.window.close();
+ const b=bridge();const control=b.w.document.createElement('button');control.textContent='View PDF';control.addEventListener('click',()=>b.w.open('academics/render/42'));b.w.document.body.append(control);control.dispatchEvent(new b.w.MouseEvent('click',{bubbles:true,cancelable:true}));await pause();assert.equal(b.opens.length,0);assert.ok(b.messages.some(message=>message.kind==='ready'));b.dom.window.close();
+});
+test('PDF download attributes on opaque URLs, data URLs and dwnld endpoints open the viewer',async()=>{
+ for(const href of ['academics/render/42','data:application/pdf;base64,JVBERi0xLjQ=','academics/courseDwnld/42']){
+  const {dom,w,messages}=bridge();const link=w.document.createElement('a');link.href=href;link.download='Course.pdf';link.click();await pause();assert.ok(messages.some(message=>message.kind==='ready'),href);dom.window.close();
+ }
+});
+test('Shift-click bypass also preserves original programmatic PDF form submission',()=>{
+ const {dom,w,calls}=bridge();const form=w.document.createElement('form');form.id='curriculumDownloadForm';form.method='post';form.action='academics/curriculDown/';
+ const button=w.document.createElement('button');button.textContent='Download Curriculum as PDF';button.addEventListener('click',()=>form.submit());w.document.body.append(form,button);button.dispatchEvent(new w.MouseEvent('click',{bubbles:true,cancelable:true,shiftKey:true}));assert.equal(calls.length,1);assert.equal(calls[0].native,true);dom.window.close();
+});
+test('download-labelled navigation entries stay native instead of fetching the current page as a PDF',async()=>{
+ const {dom,w,calls}=bridge();let navigations=0;
+ const link=w.document.createElement('a');link.href='#';link.className='systemB5BtnMenu';link.dataset.url='events/certificateDownload';link.textContent='Certificate Download';link.addEventListener('click',event=>{event.preventDefault();navigations++;});w.document.body.append(link);
+ link.dispatchEvent(new w.MouseEvent('click',{bubbles:true,cancelable:true}));await pause();assert.equal(navigations,1);assert.equal(calls.length,0);dom.window.close();
+});
