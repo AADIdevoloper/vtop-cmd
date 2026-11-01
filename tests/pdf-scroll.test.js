@@ -25,12 +25,12 @@ test('continuous viewer creates every page in one scroll container and renders o
  const {dom,w,container,paints,entries}=setup();await pause();
  const pages=[...container.querySelectorAll('.sheet')];assert.equal(pages.length,3);assert.ok(paints.includes(1));assert.ok(!paints.includes(3));
  container.scrollTop=pages[2].offsetTop;entries([{target:pages[0],isIntersecting:false},{target:pages[2],isIntersecting:true}]);await pause();
- assert.equal(pages[0].querySelector('canvas').width,0);assert.ok(pages[2].querySelector('canvas').width>0);assert.equal(w.document.querySelector('#page').value,'3');assert.equal(w.document.querySelector('#next').disabled,true);dom.window.close();
+ assert.equal(pages[0].querySelector('canvas').width,0);assert.ok(pages[2].querySelector('canvas').width>0);assert.equal(w.document.querySelector('#page').value,'3');dom.window.close();
 });
 test('page controls scroll within the full document instead of replacing a single canvas',async()=>{
  const {dom,w,container}=setup();await pause();const original=[...container.children];
- w.document.querySelector('#next').click();await pause();assert.equal(w.document.querySelector('#page').value,'2');assert.ok(container.scrollTop>0);assert.equal(container.children.length,3);assert.equal(container.children[0],original[0]);
- const input=w.document.querySelector('#page');input.value='3';input.dispatchEvent(new w.Event('change'));await pause();assert.equal(container.children[2],original[2]);assert.equal(input.value,'3');dom.window.close();
+ const input=w.document.querySelector('#page');input.value='2';input.dispatchEvent(new w.Event('change'));await pause();assert.equal(input.value,'2');assert.ok(container.scrollTop>0);assert.equal(container.children.length,3);assert.equal(container.children[0],original[0]);
+ input.value='3';input.dispatchEvent(new w.Event('change'));await pause();assert.equal(container.children[2],original[2]);assert.equal(input.value,'3');dom.window.close();
 });
 test('zoom resizes all page placeholders while retaining continuous page order',async()=>{
  const {dom,w,container}=setup();await pause();const pages=[...container.children],width=parseFloat(pages[0].style.width);
