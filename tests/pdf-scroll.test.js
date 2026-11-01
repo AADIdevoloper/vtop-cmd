@@ -15,7 +15,7 @@ function setup({query=''}={}){
  w.HTMLCanvasElement.prototype.getContext=()=>({});
  w.ResizeObserver=class{observe(){}};
  w.IntersectionObserver=class{constructor(callback){this.callback=callback;observer=this;}observe(element){this.callback([{target:element,isIntersecting:element.dataset.page==='1'}]);}};
- w.testPdf={GlobalWorkerOptions:{},getDocument:()=>({promise:Promise.resolve({numPages:3,getPage:async number=>({getViewport:({scale})=>({width:600*scale,height:800*scale}),render:()=>{paints.push(number);return{promise:Promise.resolve(),cancel(){}};},getTextContent:async()=>({items:[{str:`Sample page ${number}`} ]})})})})};
+ w.testPdf={GlobalWorkerOptions:{},VerbosityLevel:{ERRORS:0},getDocument:()=>({promise:Promise.resolve({numPages:3,getPage:async number=>({getViewport:({scale})=>({width:600*scale,height:800*scale}),render:()=>{paints.push(number);return{promise:Promise.resolve(),cancel(){}};},getTextContent:async()=>({items:[{str:`Sample page ${number}`} ]})})})})};
  let source=fs.readFileSync(__dirname+'/../pdf-viewer.mjs','utf8').replace(/^import \* as pdfjs[^\n]+\n/,'const pdfjs=window.testPdf;\n').replaceAll('import.meta.url',JSON.stringify('https://vtop.vit.ac.in/pdf-viewer.mjs'));
  w.eval(source);
  w.dispatchEvent(new w.MessageEvent('message',{source:w,origin:'https://vtop.vit.ac.in',data:{type:'pdf-data',nonce:'scroll-test',bytes:new w.ArrayBuffer(8)}}));

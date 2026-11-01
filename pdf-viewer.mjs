@@ -123,7 +123,8 @@ window.addEventListener('message',async event=>{
  received=true;notify('viewer-received');status('Opening PDF…');
  let timer;
  try{
-  const task=pdfjs.getDocument({data:new Uint8Array(event.data.bytes),isEvalSupported:false,useWasm:false,useSystemFonts:true,cMapUrl:new URL('./vendor/cmaps/',import.meta.url).href,cMapPacked:true,standardFontDataUrl:new URL('./vendor/standard_fonts/',import.meta.url).href});
+  // VTOP's PDFs often carry malformed form fields and font hints; PDF.js recovers, so only real errors are logged.
+  const task=pdfjs.getDocument({data:new Uint8Array(event.data.bytes),verbosity:pdfjs.VerbosityLevel.ERRORS,isEvalSupported:false,useWasm:false,useSystemFonts:true,cMapUrl:new URL('./vendor/cmaps/',import.meta.url).href,cMapPacked:true,standardFontDataUrl:new URL('./vendor/standard_fonts/',import.meta.url).href});
   // A worker that never answers must not leave the viewer stuck; password prompts wait for the user.
   timer=setTimeout(()=>task.destroy(),30000);
   task.onPassword=(updatePassword,reason)=>{clearTimeout(timer);status(reason===2?'Incorrect password. Try again.':'This PDF is password protected.');$('#password-form').hidden=false;$('#password').focus();$('#password-form').onsubmit=event=>{event.preventDefault();updatePassword($('#password').value);$('#password').value='';$('#password-form').hidden=true;};};
