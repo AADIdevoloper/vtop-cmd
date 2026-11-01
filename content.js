@@ -66,7 +66,7 @@
     scanSemesters();
   }
   function showSemesterSettings() {
-    open(); semesterView = true;
+    open(); host.dispatchEvent(new CustomEvent('vtop-cgpa-hide')); semesterView = true;
     for (const selector of ['.search', '.meta', '.results', 'footer']) shadow.querySelector(selector).hidden = true;
     shadow.querySelectorAll('p.empty').forEach(p => p.remove());
     shadow.querySelector('.semester-settings').hidden = false;
@@ -86,6 +86,7 @@
     semesterPicker.focus();
   }
   function showPages() {
+    host.dispatchEvent(new CustomEvent('vtop-cgpa-hide'));
     semesterView = false;
     shadow.querySelector('.semester-settings').hidden = true;
     for (const selector of ['.search', '.meta', '.results', 'footer']) shadow.querySelector(selector).hidden = false;
@@ -139,6 +140,12 @@
 
   function allCommands() {
     return [...commands,
+      { id: 'vtop:cgpa', label: 'CGPA calculator', category: 'Study tools', keywords: 'grades gpa credits predict semester', action: () => {
+        semesterView = true;
+        for (const selector of ['.search', '.meta', '.results', 'footer', '.semester-settings']) shadow.querySelector(selector).hidden = true;
+        shadow.querySelectorAll('p.empty').forEach(p => p.remove());
+        host.dispatchEvent(new CustomEvent('vtop-cgpa-open', { detail: { defaultSemester } }));
+      } },
       { id: 'vtop:semester', label: 'Choose default semester', category: defaultSemester?.label || 'Preferences', keywords: 'semester term default automatic', action: showSemesterSettings },
       { id: 'vtop:tools', label: 'Assignment countdown & page filters', category: 'Study tools', keywords: 'due deadline digital assignment filters remember', action: () => host.dispatchEvent(new CustomEvent('vtop-tools-open')) },
       { id: 'vtop:theme', label: 'Toggle dark mode', category: 'Appearance', keywords: 'light theme night', action: toggleTheme }];
@@ -188,6 +195,7 @@
     dialog.showModal(); input.setAttribute('aria-expanded', 'true'); input.focus();
   }
   function close() { if (dialog.open) dialog.close(); }
+  host.addEventListener('vtop-cgpa-back', () => { showPages(); render(); input.focus(); });
   function activate(index) {
     const command = filtered[index]; if (!command) return;
     if (command.action) { command.action(); return; }
@@ -220,7 +228,7 @@
   });
   shadow.querySelector('.clear-semester').addEventListener('click', () => { prompted = true; saveSemesterPreference(null); close(); });
   shadow.querySelector('.skip-semester').addEventListener('click', () => { prompted = true; showPages(); render(); input.focus(); });
-  dialog.addEventListener('close', () => { input.setAttribute('aria-expanded', 'false'); if (previousFocus?.isConnected) previousFocus.focus(); });
+  dialog.addEventListener('close', () => { host.dispatchEvent(new CustomEvent('vtop-cgpa-hide')); input.setAttribute('aria-expanded', 'false'); if (previousFocus?.isConnected) previousFocus.focus(); });
   dialog.addEventListener('click', event => { if (event.target === dialog) { const r = dialog.getBoundingClientRect(); if (event.clientX < r.left || event.clientX > r.right || event.clientY < r.top || event.clientY > r.bottom) close(); } });
   input.addEventListener('input', render);
   dialog.addEventListener('keydown', event => {

@@ -80,3 +80,23 @@ Automated tests and local browser previews do not replace testing the installed 
 - `pdf-preview.js`: in-page preview shell, original Download option, and temporary document cleanup.
 - `pdf-viewer.*`: local PDF.js renderer with pagination, zoom, and password support.
 - `dark.css`: scoped VTOP dark theme.
+
+### CGPA calculator
+
+Open Cmd+K / Ctrl+K and choose **CGPA calculator**. The command window expands,
+loads Grade History through VTOP's navigation, then loads Time Table behind the
+window. The saved default semester is used when available. You can switch the
+semester inside the calculator.
+
+Previous semester GPAs appear in horizontally scrolling tiles. Current courses
+start at S, with **− S +** controls: minus lowers the grade (S → A → B → C → D → E → F),
+and plus raises it. Matching grade predictions are remembered locally per semester
+and course. Credits come directly from VTOP; course credits and historical results
+are not editable.
+
+NGCR / Non-graded Core Requirement courses remain visible as non-graded and are
+excluded from SGPA and CGPA. S/A/B/C/D/E/F map to 10/9/8/7/6/5/0. F contributes
+credits with zero grade points. Unknown grades and zero-credit courses are excluded.
+Calculations use unrounded points and credits, rounding only the displayed GPA.
+
+Repeat-course, replacement, and special grading rules still need refinement. Nothing is submitted to your academic record.

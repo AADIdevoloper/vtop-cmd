@@ -16,7 +16,9 @@
         "semesters.js",
         "enhancements.js",
         "page-actions.js",
+        "cgpa.js",
         "content.js",
+        "cgpa-ui.js",
         "page-enhancements.js",
         "enhancements-ui.js",
         "pdf-preview.js"
