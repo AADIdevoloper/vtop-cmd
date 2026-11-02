@@ -47,37 +47,51 @@ test('calculator navigates history then timetable, updates projection, and retur
   assert.equal(shadow.querySelector('.search').hidden, false);
   dom.window.close();
 });
-test('timetable can initially contain only a semester picker; calculator loads and switches courses', async () => {
+test('calculator has no semester selector and opens the current semester, not the default', async () => {
   const dom = new JSDOM(`<a class="systemBtnMenu" data-url="history">Grade History</a><a class="systemBtnMenu" data-url="time">Time Table</a><main></main>`, { runScripts: 'outside-only' });
   const w = dom.window;
   w.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
-  w.chrome = { storage: { local: { get: async () => ({ defaultSemester: null }) }, onChanged: { addListener() {} } } };
+  // The saved default is a far-future term; the calculator must ignore it.
+  w.chrome = { storage: { local: { get: async () => ({ defaultSemester: { value: 'future', label: 'Fall Semester 2099-00' } }) }, onChanged: { addListener() {} } } };
   w.document.querySelector('[data-url="history"]').addEventListener('click', event => {
     event.preventDefault(); w.document.querySelector('main').innerHTML = table(true);
   });
+  const picks = [];
   w.document.querySelector('[data-url="time"]').addEventListener('click', event => {
     event.preventDefault();
-    w.document.querySelector('main').innerHTML = '<select id="semester"><option value="">Select semester</option><option value="fall">Fall 2026</option><option value="winter">Winter 2026</option></select><div id="courses"></div>';
+    w.document.querySelector('main').innerHTML = '<select id="semester"><option value="">Select semester</option><option value="future">Fall Semester 2099-00</option><option value="winter">Winter Semester 2025-26</option></select><div id="courses"></div>';
     const select = w.document.querySelector('#semester');
     select.addEventListener('change', () => {
+      picks.push(select.value);
       const data = select.value === 'winter' ? table().replaceAll('Calculus', 'Winter Calculus') : table();
       w.document.querySelector('#courses').innerHTML = data;
     });
   });
   for (const file of ['brand.js', 'combobox.js', 'navigation.js', 'semesters.js', 'page-actions.js', 'cgpa.js', 'content.js', 'cgpa-ui.js']) w.eval(fs.readFileSync(`${__dirname}/../${file}`, 'utf8'));
   const shadow = w.document.querySelector('#vtop-command-root').shadowRoot;
+  await new Promise(resolve => setTimeout(resolve, 50));
   shadow.querySelector('.launcher').click();
   [...shadow.querySelectorAll('.option')].find(row => row.textContent.includes('CGPA calculator')).click();
-  await new Promise(resolve => setTimeout(resolve, 550));
-  assert.equal(shadow.querySelectorAll('.cgpa-row').length, 2);
-  assert.equal(shadow.querySelector('.cgpa-term-label').hidden, false);
-  const picker = shadow.querySelector('.cgpa-term');
-  assert.equal(picker.value, 'fall');
-  picker.value = 'winter'; picker.dispatchEvent(new w.Event('change'));
-  await new Promise(resolve => setTimeout(resolve, 50));
-  assert.match(shadow.querySelector('.cgpa-courses').textContent, /Winter Calculus/);
+  await new Promise(resolve => setTimeout(resolve, 700));
+  assert.equal(shadow.querySelector('.cgpa-term'), null, 'no semester selector');
+  assert.equal(shadow.querySelector('.cgpa .cb'), null);
   assert.equal(w.document.querySelector('#semester').value, 'winter');
+  assert.deepEqual(picks, ['winter'], 'the default semester never touched this Time Table');
+  assert.match(shadow.querySelector('.cgpa-courses').textContent, /Winter Calculus/);
+  assert.match(shadow.querySelector('.cgpa-status').textContent, /Winter Semester 2025-26/);
   dom.window.close();
+});
+test('currentTerm picks the semester in progress, never a future one', () => {
+  const { currentTerm } = require('../cgpa');
+  const offered = ['Winter Semester 2026-27', 'Fall Semester 2026-27 - VLR', 'Summer Semester 2025-26', 'Winter Semester 2025-26'].map((label, i) => ({ value: String(i), label }));
+  const at = (date, choices = offered) => currentTerm(choices, new Date(date)).label;
+  assert.equal(at('2026-11-02'), 'Fall Semester 2026-27 - VLR', 'November: Fall, although Winter is already listed');
+  assert.equal(at('2026-12-15'), 'Winter Semester 2026-27');
+  assert.equal(at('2027-03-01'), 'Winter Semester 2026-27');
+  assert.equal(at('2026-06-10'), 'Summer Semester 2025-26');
+  assert.equal(at('2026-08-01', offered.slice(2)), 'Summer Semester 2025-26', 'latest started term when the current one is not offered');
+  assert.equal(at('2026-11-02', [{ value: 'x', label: 'Inter Semester' }, { value: 'y', label: 'Special' }]), 'Inter Semester', 'unrecognised labels fall back to VTOP order');
+  assert.equal(currentTerm([]), null);
 });
 test('reads the live VTOP combined Course and L T P J C timetable layout', () => {
   const dom = new JSDOM(`<table><tr><th>Sl.No</th><th>Class Group</th><th>Course</th><th>L T P J C</th><th>Category</th></tr>

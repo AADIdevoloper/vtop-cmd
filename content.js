@@ -78,8 +78,12 @@
   }, true);
   const semesterSlot = select => select.id || select.name || 'semester';
   const pageLinks = 'a.systemB5BtnMenu[data-url],a.systemBtnMenu[data-url],a.quickB5MainMenu[data-url],a[onclick*="home()"]';
+  // The CGPA calculator picks its own semester on the Time Table visit it opens; the default stays out of it.
+  let claimedVisitUntil = 0;
+  host.addEventListener('vtop-cgpa-claim-semester', () => { claimedVisitUntil = Date.now() + 15000; });
   function newPageVisit() {
     pageVisit++;
+    if (Date.now() < claimedVisitUntil) { manualSemesterVisit = pageVisit; claimedVisitUntil = 0; }
     // Dropdowns of the page being left must not be set while the next page loads.
     for (const select of semesters.discover(document)) staleSemesters.add(select);
     document.dispatchEvent(new CustomEvent('vtop-page-visit'));
@@ -259,7 +263,7 @@
         semesterView = true;
         for (const selector of ['.search', '.meta', '.results', 'footer', '.semester-settings']) shadow.querySelector(selector).hidden = true;
         shadow.querySelectorAll('p.empty').forEach(p => p.remove());
-        host.dispatchEvent(new CustomEvent('vtop-cgpa-open', { detail: { defaultSemester } }));
+        host.dispatchEvent(new CustomEvent('vtop-cgpa-open'));
       } },
       { id: 'vtop:semester', label: 'Choose default semester', category: defaultSemester?.label || 'Preferences', keywords: 'semester term default automatic', action: showSemesterSettings },
       { id: 'vtop:theme', label: 'Toggle dark mode', category: 'Appearance', keywords: 'light theme night', action: toggleTheme }];

@@ -100,7 +100,7 @@ On **Marks**, each course's table ends with a highlighted **Total** row adding u
 
 Open the menu and choose **CGPA calculator**.
 
-- **Loads your data:** it opens Grade History and Time Table through VTOP's own menu, the same way you would. It uses your default semester, and you can switch semesters inside the calculator.
+- **Loads your data:** it opens Grade History and Time Table through VTOP's own menu, the same way you would. It always uses your current semester, the latest one in Time Table that has already started, so a newly listed future semester isn't picked. Your default semester doesn't affect it, and there's no semester selector to change.
 - **Past results:** previous semesters' GPAs appear as tiles.
 - **Expected grades:** every current course starts at S. Use **−** and **+** to set the grade you expect (S, A, B, C, D, E, F), and the projected semester GPA and CGPA update as you go. Your predictions are remembered on this device.
 - **Grading rules:** S/A/B/C/D/E/F count as 10/9/8/7/6/5/0. F still counts its credits.

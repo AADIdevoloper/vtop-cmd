@@ -16,7 +16,6 @@
     .cgpa-bubble span{font-size:10px;color:var(--muted)}.cgpa-bubble b{font-size:25px;letter-spacing:-1px;color:var(--accent)}
     .cgpa-summary{display:flex;gap:22px;flex-wrap:wrap;padding:16px 0;border-block:1px solid var(--line);margin-bottom:8px}.cgpa-summary span{font-size:11px;color:var(--muted);display:block}.cgpa-summary b{font-size:24px;font-variant-numeric:tabular-nums}
     .cgpa-row{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}.cgpa-course{flex:1;min-width:0}.cgpa-course b{display:block;font-size:13px;font-weight:550}.cgpa-course small{color:var(--muted);font-size:11px}.cgpa-grade{display:flex;align-items:center;flex-shrink:0;border:1px solid var(--line);border-radius:10px;background:var(--hover);overflow:hidden}.cgpa-grade output{min-width:34px;text-align:center;font-size:16px;font-weight:650;color:var(--accent)}.cgpa-grade button{display:grid;place-items:center;width:32px;min-height:38px;padding:0;border:0;border-radius:0;background:transparent}.cgpa-grade button:hover:not(:disabled){background:var(--line)}.cgpa-grade button:disabled{opacity:.25;cursor:default}.cgpa-grade button:focus-visible{outline-offset:-3px}.cgpa-status{min-height:18px}
-    .cgpa-term-label{display:flex;align-items:center;gap:12px;margin:2px 0 6px}.cgpa-term-label>span{font-size:12px;font-weight:600;color:var(--muted)}.cgpa-term-label .cb{max-width:340px}
     @media(prefers-reduced-motion:no-preference){dialog{transition:width .24s ease}.cgpa{animation:arrive .2s ease-out}}
   `;
   shadow.append(style);
@@ -25,11 +24,11 @@
   globalThis.VtopBrand.setMarkup(panel, `<div class="cgpa-toolbar"><button type="button" class="cgpa-back">← Back</button><button type="button" class="cgpa-reload">Reload data</button><strong>WHAT IF / CGPA</strong></div>
     <h2>Plan your next semester.</h2><p>Credit-weighted estimates. S = 10 · A = 9 · B = 8 · C = 7 · D = 6 · E = 5 · F = 0.</p>
     <div class="cgpa-history" aria-label="Previous semester GPAs" tabindex="0"></div>
-    <div class="cgpa-summary" aria-live="polite"></div><p class="cgpa-status" role="status"></p><div class="cgpa-term-label" hidden><span>Semester</span><select class="cgpa-term" aria-label="Calculator semester"></select></div><div class="cgpa-courses"></div>
+    <div class="cgpa-summary" aria-live="polite"></div><p class="cgpa-status" role="status"></p><div class="cgpa-courses"></div>
     <p>Provisional: repeat courses and special grading rules are not adjusted yet. NGCR, unrecognized grades, and zero-credit courses are excluded. Grades you choose here never change VTOP.</p>`);
   dialog.append(panel);
   // A new load or a closed panel invalidates earlier asynchronous scrape results.
-  let generation = 0, preference, history = [], current = [], reference = null;
+  let generation = 0, history = [], current = [], reference = null;
   let scenarios = Object.create(null), loadedTerm = 'current';
   // Keep predictions separate for different students sharing this browser profile.
   const registration = [...document.querySelectorAll('button')].map(node => node.textContent.trim().match(/^([A-Z0-9]{6,20})\s*\(STUDENT\)/i)).find(Boolean)?.[1];
@@ -60,9 +59,6 @@
     scenarios[loadedTerm] = current.map(c => ({ code: c.code, type: c.type || '', grade: c.grade }));
     persist();
   }
-  const termPicker = panel.querySelector('.cgpa-term');
-  const termLabel = panel.querySelector('.cgpa-term-label');
-  const termCombobox = globalThis.VtopCombobox.create(termPicker, { label: 'Calculator semester' });
   const status = text => { panel.querySelector('.cgpa-status').textContent = text; };
   function summary() {
     const past = previous(history, reference), next = totals(current);
@@ -139,7 +135,7 @@
     throw new Error('VTOP did not return a readable page. Reload data to try again.');
   }
   async function load() {
-    const token = ++generation; await savedReady; if (token !== generation) return; termLabel.hidden = true; termPicker.disabled = true; history = []; current = []; reference = null; renderHistory(); renderCourses();
+    const token = ++generation; await savedReady; if (token !== generation) return; history = []; current = []; reference = null; renderHistory(); renderCourses();
     panel.querySelector('.cgpa-reload').disabled = true;
     let historyWarning = '';
     try {
@@ -150,27 +146,23 @@
         if (!history.length) historyWarning = 'Grade History could not be read; previous CGPA is unavailable. ';
       } catch (error) { if (token !== generation) return; historyWarning = `${error.message} Previous CGPA is unavailable. `; }
       status(`${historyWarning}Loading Time Table…`);
+      // The calculator picks the semester itself; keep the default semester off this Time Table visit.
+      host.dispatchEvent(new CustomEvent('vtop-cgpa-claim-semester'));
       await loadPage(/time\s*table/i, token);
       const select = globalThis.VtopSemesters.discover(document)[0];
       if (select) {
-        const choices = globalThis.VtopSemesters.options(select);
-        termPicker.replaceChildren(...choices.map(option => new Option(option.label, option.value)));
-        termLabel.hidden = false;
-        const choice = globalThis.VtopSemesters.match(select, preference) || choices.find(option => option.value === select.value) || choices[0];
+        const choice = globalThis.VtopCgpa.currentTerm(globalThis.VtopSemesters.options(select));
         if (choice && select.value !== choice.value) {
           await globalThis.VtopPageActions.change(select, choice.value);
           if (token !== generation) return;
         }
-        if (preference && !globalThis.VtopSemesters.match(select, preference)) historyWarning += 'Default semester unavailable; using the timetable semester. ';
-        const selected = select.selectedOptions[0];
+        const selected = globalThis.VtopSemesters.discover(document)[0]?.selectedOptions[0];
         if (selected) historyWarning += `${selected.textContent.trim()}. `;
       }
-      termPicker.value = globalThis.VtopSemesters.discover(document)[0]?.value || '';
-      termCombobox.sync();
       await readCurrent(token);
       status(`${historyWarning}${current.length ? `${current.length} courses · choose expected grades below.` : 'No courses could be read from this timetable. Check the semester on VTOP and reload data.'}`);
     } catch (error) { if (token === generation) status(`${historyWarning}${error.message}`); }
-    finally { if (token === generation) { panel.querySelector('.cgpa-reload').disabled = false; termPicker.disabled = false; } }
+    finally { if (token === generation) panel.querySelector('.cgpa-reload').disabled = false; }
   }
   async function readCurrent(token) {
     const started = Date.now();
@@ -178,29 +170,16 @@
       if (token !== generation) throw new Error('cancelled');
       if (document.documentElement.getAttribute('data-vtop-page-busy') !== 'true') {
         const data = courses(document).filter(course => !course.grade);
-        if (data.length) { loadedTerm = `term:${globalThis.VtopSemesters.key(termPicker.selectedOptions[0]?.textContent || 'current')}`; current = restoreCurrent(data); renderCourses(); return; }
+        if (data.length) { loadedTerm = `term:${globalThis.VtopSemesters.key(globalThis.VtopSemesters.discover(document)[0]?.selectedOptions[0]?.textContent || 'current')}`; current = restoreCurrent(data); renderCourses(); return; }
       }
       await new Promise(resolve => setTimeout(resolve, 150));
     }
     current = []; renderCourses();
   }
-  termPicker.addEventListener('change', async () => {
-    const token = ++generation;
-    termPicker.disabled = true; status('Loading semester courses…');
-    current = []; renderCourses();
-    try {
-      const select = globalThis.VtopSemesters.discover(document)[0];
-      if (!select) throw new Error('Open Time Table again to select a semester.');
-      await globalThis.VtopPageActions.change(select, termPicker.value);
-      await readCurrent(token);
-      if (token === generation) status(current.length ? `${current.length} courses · choose expected grades below.` : 'No readable courses for this semester.');
-    } catch (error) { if (token === generation) status(error.message); }
-    finally { termPicker.disabled = false; panel.querySelector('.cgpa-reload').disabled = false; }
-  });
   panel.querySelector('.cgpa-back').addEventListener('click', () => host.dispatchEvent(new CustomEvent('vtop-cgpa-back')));
   panel.querySelector('.cgpa-reload').addEventListener('click', load);
   host.addEventListener('vtop-cgpa-open', event => {
-    preference = event.detail.defaultSemester; panel.hidden = false; dialog.classList.add('cgpa-expanded');
+    panel.hidden = false; dialog.classList.add('cgpa-expanded');
     panel.querySelector('.cgpa-back').focus(); load();
   });
   host.addEventListener('vtop-cgpa-hide', () => { ++generation; panel.hidden = true; dialog.classList.remove('cgpa-expanded'); });

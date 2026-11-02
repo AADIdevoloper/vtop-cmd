@@ -85,7 +85,21 @@
     }
     return result;
   }
-  const api = { points, courses, totals, official, previous, validatePredictions };
+  // VIT's academic year runs Fall (Jul–Nov), Winter (Dec–Apr), then Summer (May–Jun).
+  function termOrder(label) {
+    const term = clean(label).toLowerCase().replace(/[–—]/g, '-').match(/\b(fall|winter|summer)\b.*?\b(\d{4})\s*[-/]\s*\d{2,4}\b/);
+    return term ? Number(term[2]) * 3 + { fall: 0, winter: 1, summer: 2 }[term[1]] : null;
+  }
+  // The semester in progress: the latest offered term that has already started, so a newly listed future
+  // term isn't picked. Unrecognised labels fall back to VTOP's own first choice.
+  function currentTerm(choices, now = new Date()) {
+    const month = now.getMonth() + 1, start = month >= 7 ? now.getFullYear() : now.getFullYear() - 1;
+    const today = start * 3 + (month >= 7 && month <= 11 ? 0 : month === 12 || month <= 4 ? 1 : 2);
+    const started = choices.map((choice, index) => ({ choice, index, order: termOrder(choice.label) }))
+      .filter(item => item.order !== null && item.order <= today).sort((a, b) => b.order - a.order || a.index - b.index);
+    return started[0]?.choice || choices[0] || null;
+  }
+  const api = { points, courses, totals, official, previous, validatePredictions, currentTerm };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.VtopCgpa = api;
 })(globalThis);
