@@ -110,6 +110,10 @@ Open the menu and choose **CGPA calculator**.
 
 Nothing in the calculator changes your academic record.
 
+### Image CAPTCHA autofill
+
+The supported six-character VTOP image CAPTCHA is recognized locally using a bundled model, loaded only when needed. It fills confident results without submitting login or changing text you enter. Google CAPTCHA remains manual. No image or credentials are sent to an external recognition service.
+
 ### Late Hour Request preset
 
 Late Hour Request can remember your usual answers. Preset creation and automatic filling are available only on this form.

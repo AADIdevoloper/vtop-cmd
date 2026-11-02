@@ -27,7 +27,9 @@
         "deadline-cache-client.js",
         "page-enhancements.js",
         "enhancements-ui.js",
-        "pdf-preview.js"
+        "pdf-preview.js",
+        "captcha-solver.js",
+        "captcha.js"
       ],
       "css": [
         "dark.css"
@@ -58,7 +60,8 @@
         "vendor/pdf.worker.mjs",
         "vendor/cmaps/*",
         "vendor/standard_fonts/*",
-        "vendor/pptx-renderer.browser.mjs"
+        "vendor/pptx-renderer.browser.mjs",
+        "captcha-model.json"
       ],
       "matches": [
         "https://vtop.vit.ac.in/*"

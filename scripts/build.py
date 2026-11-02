@@ -8,7 +8,7 @@ import argparse
 from browser_manifest import browser_manifest
 
 root = Path(__file__).resolve().parent.parent
-files = ['extension-background.js', 'deadline-cache.js', 'deadline-cache-client.js', 'manifest.json', 'brand.js', 'combobox.js', 'search-select.js', 'form-presets.js', 'navigation.js', 'semesters.js', 'enhancements.js', 'content.js', 'dark-readability.js', 'cgpa.js', 'cgpa-ui.js', 'page-enhancements.js', 'page-actions.js', 'page-runtime.js', 'enhancements-ui.js', 'pdf-bridge.js', 'pdf-preview.js', 'extension-action.js', 'pdf-viewer.html', 'pdf-viewer.css', 'pdf-viewer.mjs', 'pptx-viewer.mjs', 'dark.css', 'README.md', 'docs/dark-mode-audit.md']
+files = ['captcha-solver.js', 'captcha.js', 'captcha-model.json', 'licenses/vtop-captcha-solver.txt', 'extension-background.js', 'deadline-cache.js', 'deadline-cache-client.js', 'manifest.json', 'brand.js', 'combobox.js', 'search-select.js', 'form-presets.js', 'navigation.js', 'semesters.js', 'enhancements.js', 'content.js', 'dark-readability.js', 'cgpa.js', 'cgpa-ui.js', 'page-enhancements.js', 'page-actions.js', 'page-runtime.js', 'enhancements-ui.js', 'pdf-bridge.js', 'pdf-preview.js', 'extension-action.js', 'pdf-viewer.html', 'pdf-viewer.css', 'pdf-viewer.mjs', 'pptx-viewer.mjs', 'dark.css', 'README.md', 'docs/dark-mode-audit.md']
 source_manifest = json.loads((root / 'manifest.json').read_text())
 assert source_manifest['manifest_version'] == 3
 assert source_manifest.get('background') == {'scripts': ['deadline-cache.js', 'extension-action.js']}
@@ -35,6 +35,14 @@ for browser in browsers:
     shutil.copytree(root / 'icons', output / 'icons', dirs_exist_ok=True)
     vendor = output / 'vendor'
     shutil.copytree(root / 'vendor', vendor, dirs_exist_ok=True)
+    # Fail packaging if a declared runtime/model asset was accidentally left out.
+    required = [asset for group in manifest['content_scripts'] for asset in group.get('js', []) + group.get('css', [])]
+    required += [asset for group in manifest.get('web_accessible_resources', []) for asset in group['resources'] if '*' not in asset]
+    required += manifest['background'].get('scripts', [])
+    if manifest['background'].get('service_worker'):
+        required.append(manifest['background']['service_worker'])
+    for asset in required:
+        assert (output / asset).is_file(), f'Missing runtime asset: {asset}'
     archive = root / 'dist' / f"{package_name}-{manifest['version']}.zip"
     with zipfile.ZipFile(archive, 'w', zipfile.ZIP_DEFLATED) as bundle:
         for name in files:

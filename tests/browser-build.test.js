@@ -28,6 +28,12 @@ test('Chrome manifest uses a service worker and preserves shared document viewer
   assert.ok(chrome.web_accessible_resources[0].resources.includes(asset));assert.ok(fs.existsSync(path.join(root,asset)));
  }
  assert.ok(chrome.content_scripts[0].js.includes('deadline-cache-client.js'));
+ for(const manifest of [chrome,firefox]){
+  const scripts=manifest.content_scripts[0].js;
+  assert.ok(scripts.indexOf('captcha-solver.js')>=0);
+  assert.ok(scripts.indexOf('captcha.js')>scripts.indexOf('captcha-solver.js'));
+  assert.ok(manifest.web_accessible_resources[0].resources.includes('captcha-model.json'));
+ }
 });
 test('Chrome service worker loads shared session cache and toolbar listeners without DOM APIs',()=>{
  const loaded=[],listeners=[];
