@@ -22,11 +22,11 @@
   shadow.append(style);
   const panel = document.createElement('section'); panel.className = 'cgpa'; panel.hidden = true;
   panel.setAttribute('aria-label', 'CGPA calculator');
-  panel.innerHTML = `<div class="cgpa-toolbar"><button type="button" class="cgpa-back">← Back</button><button type="button" class="cgpa-reload">Reload data</button><strong>WHAT IF / CGPA</strong></div>
+  globalThis.VtopBrand.setMarkup(panel, `<div class="cgpa-toolbar"><button type="button" class="cgpa-back">← Back</button><button type="button" class="cgpa-reload">Reload data</button><strong>WHAT IF / CGPA</strong></div>
     <h2>Plan your next semester.</h2><p>Credit-weighted estimates. S = 10 · A = 9 · B = 8 · C = 7 · D = 6 · E = 5 · F = 0.</p>
     <div class="cgpa-history" aria-label="Previous semester GPAs" tabindex="0"></div>
     <div class="cgpa-summary" aria-live="polite"></div><p class="cgpa-status" role="status"></p><div class="cgpa-term-label" hidden><span>Semester</span><select class="cgpa-term" aria-label="Calculator semester"></select></div><div class="cgpa-courses"></div>
-    <p>Provisional: repeat courses and special grading rules are not adjusted yet. NGCR, unrecognized grades, and zero-credit courses are excluded. Grades you choose here never change VTOP.</p>`;
+    <p>Provisional: repeat courses and special grading rules are not adjusted yet. NGCR, unrecognized grades, and zero-credit courses are excluded. Grades you choose here never change VTOP.</p>`);
   dialog.append(panel);
   // A new load or a closed panel invalidates earlier asynchronous scrape results.
   let generation = 0, preference, history = [], current = [], reference = null;

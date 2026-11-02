@@ -15,7 +15,7 @@
     const url = createURL(blob);
     // Untyped blobs are common for AJAX downloads; preview() sniffs the bytes before showing them.
     // VTOP's downloadFileWithProgress revokes right after click(), so keep the Blob itself for preview().
-    if (blob instanceof Blob && /^$|application\/(?:pdf|octet-stream)/i.test(blob.type)) pdfBlobs.set(url,blob);
+    if (blob instanceof Blob && /^$|application\/(?:pdf|octet-stream|vnd\.ms-powerpoint|vnd\.openxmlformats-officedocument\.presentationml\.presentation)/i.test(blob.type)) pdfBlobs.set(url,blob);
     return url;
   };
   URL.revokeObjectURL = function (url) { pdfBlobs.delete(url); return revokeURL(url); };
@@ -23,7 +23,7 @@
   let sequence = 0;
   let bypassClick = false;
   let downloadIntent = null;
-  const downloadHint = value => /\bpdf\b|download|dwnld|curriculdown/i.test(value || '');
+  const downloadHint = value => /\b(?:pdf|pptx?|powerpoint|presentation|slides?)\b|download|dwnld|curriculdown/i.test(value || '');
   function localURL(value) {
     try {const url=new URL(value,document.baseURI);return url.origin===location.origin&&url.pathname.startsWith('/vtop/');} catch {return false;}
   }
@@ -38,7 +38,7 @@
     try {
       const url = new URL(value, document.baseURI);
       return url.origin === location.origin && url.pathname.startsWith('/vtop/') &&
-        /\.pdf$|download|dwnld|curriculdown|viewfile/i.test(decodeURIComponent(url.pathname));
+        /\.(?:pdf|pptx?)$|download|dwnld|curriculdown|viewfile/i.test(decodeURIComponent(url.pathname));
     } catch { return false; }
   }
   function filename(header, fallback = 'document.pdf') {
@@ -63,17 +63,28 @@
       const response = source ? null : await nativeFetch(url,{credentials:'same-origin',...init});
       if (response && !response.ok) throw new Error('The document could not be loaded. Your VTOP session may have expired.');
       const blob = source || await response.blob();
-      const signature = new Uint8Array(await blob.slice(0,5).arrayBuffer());
-      const isPdf = signature.length === 5 && String.fromCharCode(...signature) === '%PDF-';
-      const name = filename(response?.headers.get('content-disposition'), suggestedName || (isPdf ? 'document.pdf' : 'download'));
+      const header = new Uint8Array(await blob.slice(0,1024).arrayBuffer());
+      const isPdf = String.fromCharCode(...header).includes('%PDF-');
+      const contentType = response?.headers.get('content-type') || blob.type;
+      const contentDisposition = response?.headers.get('content-disposition');
+      let pathName = '';
+      try { pathName = decodeURIComponent(new URL(url, document.baseURI).pathname.split('/').pop()); } catch {}
+      const name = filename(contentDisposition, suggestedName || pathName || (isPdf ? 'document.pdf' : 'download'));
+      const isPptx = /application\/vnd\.openxmlformats-officedocument\.presentationml\.presentation/i.test(contentType) || /\.pptx$/i.test(name);
+      const isLegacyPpt = /application\/vnd\.ms-powerpoint/i.test(contentType) || /\.ppt$/i.test(name);
       if (!isPdf) {
-        if (fallback && /text\/html/i.test(blob.type)) { emit('not-pdf',id); fallback(); return; }
-        if (/text\/html|application\/json/i.test(blob.type)) throw new Error('VTOP returned a page instead of a document. Sign in again and retry.');
+        if (fallback && /text\/html/i.test(contentType)) { emit('not-pdf',id); fallback(); return; }
+        if (/text\/html|application\/json/i.test(contentType)) throw new Error('VTOP returned a page instead of a document. Sign in again and retry.');
+        if (isPptx || isLegacyPpt) {
+          const bytes = await blob.arrayBuffer();
+          emit('ready',id,{bytes,filename:name,documentType:isPptx?'pptx':'unsupported'});
+          return;
+        }
         download(blob,name); emit('not-pdf',id); return;
       }
-      const blobUrl = createURL(new Blob([blob],{type:'application/pdf'}));
-      emit('ready',id,{blobUrl,filename:name});
-      setTimeout(() => revokeURL(blobUrl),60000);
+      // Send bytes directly; Firefox content scripts cannot reliably fetch page-owned blob URLs.
+      const bytes = await blob.arrayBuffer();
+      emit('ready',id,{bytes,filename:name,documentType:'pdf'});
     } catch (error) { emit('error',id,{message:error.message || 'Unable to preview this document.'}); }
   }
   function handleAnchor(anchor) {

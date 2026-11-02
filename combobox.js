@@ -8,9 +8,9 @@
   function create(select, { label, onChoose, placeholder = 'Choose…', id } = {}) {
     const doc = select.ownerDocument, view = doc.defaultView, list = `vtop-combobox-${++sequence}`;
     const root = doc.createElement('div'); root.className = 'cb';
-    root.innerHTML = `<button type="button" class="cb-trigger" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="${list}"><span class="cb-value"></span>${chevrons}</button>
+    globalThis.VtopBrand.setMarkup(root, `<button type="button" class="cb-trigger" role="combobox" aria-haspopup="listbox" aria-expanded="false" aria-controls="${list}"><span class="cb-value"></span>${chevrons}</button>
       <div class="cb-popover" hidden><div class="cb-search-row">${magnifier}<input class="cb-search" type="search" autocomplete="off" spellcheck="false" aria-autocomplete="list" aria-controls="${list}"></div>
-      <div class="cb-list" role="listbox" id="${list}"></div><div class="cb-empty" role="status" aria-live="polite"></div></div>`;
+      <div class="cb-list" role="listbox" id="${list}"></div><div class="cb-empty" role="status" aria-live="polite"></div></div>`);
     const trigger = root.querySelector('.cb-trigger'), value = root.querySelector('.cb-value'), popover = root.querySelector('.cb-popover');
     const input = root.querySelector('.cb-search'), listbox = root.querySelector('.cb-list'), empty = root.querySelector('.cb-empty');
     if (id) trigger.id = id;
@@ -34,7 +34,7 @@
       active = Math.min(Math.max(active, options.length ? 0 : -1), options.length - 1);
       listbox.replaceChildren(...options.map((option, index) => {
         const item = doc.createElement('div'); item.id = `${list}-${index}`; item.className = 'cb-item'; item.setAttribute('role', 'option');
-        item.setAttribute('aria-selected', String(option.selected)); item.innerHTML = check;
+        item.setAttribute('aria-selected', String(option.selected)); globalThis.VtopBrand.setMarkup(item, check);
         const text = doc.createElement('span'); text.textContent = option.textContent.trim(); item.append(text);
         item.addEventListener('pointerdown', event => event.preventDefault());
         item.addEventListener('pointermove', () => { if (active !== index) { active = index; highlight(false); } });

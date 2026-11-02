@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "VTOP Command",
   "version": "1.1.0",
-  "description": "Jump to VTOP pages with Cmd+K, and give VTOP a comfortable dark mode.",
+  "description": "Jump to VTOP pages with Cmd+K/Ctrl+K, and give VTOP a comfortable dark mode.",
   "permissions": [
     "storage"
   ],
@@ -48,7 +48,16 @@
   "web_accessible_resources": [
     {
       "resources": [
-        "pdf-viewer.html"
+        "pdf-viewer.html",
+        "pdf-viewer.css",
+        "pdf-viewer.mjs",
+        "pptx-viewer.mjs",
+        "brand.js",
+        "vendor/pdf.mjs",
+        "vendor/pdf.worker.mjs",
+        "vendor/cmaps/*",
+        "vendor/standard_fonts/*",
+        "vendor/pptx-renderer.browser.mjs"
       ],
       "matches": [
         "https://vtop.vit.ac.in/*"
@@ -71,6 +80,17 @@
     }
   },
   "background": {
-    "service_worker": "extension-action.js"
+    "scripts": [
+      "extension-action.js"
+    ]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vtop-command@sid-1524",
+      "strict_min_version": "128.0",
+      "data_collection_permissions": {
+        "required": ["none"]
+      }
+    }
   }
 }

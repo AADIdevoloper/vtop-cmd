@@ -74,8 +74,41 @@ test('empty results, signed-out state, and theme restore/toggle without persisti
 test('manifest has only local preference storage and VTOP-only content scope, all shipped files exist',()=>{
   const manifest=JSON.parse(fs.readFileSync(__dirname+'/../manifest.json'));
   assert.equal(manifest.manifest_version,3); assert.deepEqual(manifest.permissions,['storage']);
+  assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions,{required:['none']});
+  assert.deepEqual(manifest.background,{scripts:['extension-action.js']});
   assert.deepEqual(manifest.content_scripts[0].matches,['https://vtop.vit.ac.in/vtop/*']);
   for(const file of [...manifest.content_scripts[0].js,...manifest.content_scripts[0].css]) assert.ok(fs.existsSync(__dirname+'/../'+file));
+  const viewerResources=manifest.web_accessible_resources.find(resource=>resource.resources.includes('pdf-viewer.html')).resources;
+  for(const file of ['pptx-viewer.mjs','vendor/pptx-renderer.browser.mjs']) assert.ok(viewerResources.includes(file));
+  assert.ok(fs.existsSync(__dirname+'/../pptx-viewer.mjs'));
+  for(const file of [...manifest.content_scripts.flatMap(script=>script.js),'pdf-viewer.mjs','pptx-viewer.mjs']) {
+    const source=fs.readFileSync(__dirname+'/../'+file,'utf8');
+    assert.doesNotMatch(source,/\b(?:innerHTML|outerHTML|insertAdjacentHTML)\b/,file);
+  }
+  for(const file of ['vendor/pptx-renderer.browser.mjs','vendor/pdf.worker.mjs']) {
+    const source=fs.readFileSync(__dirname+'/../'+file,'utf8');
+    assert.doesNotMatch(source,/new Function\s*\(/,file);
+    assert.doesNotMatch(source,/\.innerHTML\s*=/,file);
+  }
+});
+test('extension UI markup strips scripts and executable attributes before insertion',()=>{
+  const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only'});
+  const w=dom.window;w.eval(fs.readFileSync(__dirname+'/../brand.js','utf8'));
+  const target=w.document.createElement('div');
+  w.VtopBrand.setMarkup(target,'<button onclick="window.compromised=true">Safe text</button><script>window.compromised=true</script><a href="javascript:window.compromised=true">Link</a>');
+  target.querySelector('button').click();
+  assert.equal(w.compromised,undefined);
+  assert.equal(target.querySelector('script'),null);
+  assert.equal(target.querySelector('button').getAttribute('onclick'),null);
+  assert.equal(target.querySelector('a').getAttribute('href'),null);
+  assert.equal(target.textContent,'Safe textLink');
+  const svg=w.document.createElementNS('http://www.w3.org/2000/svg','svg');
+  w.VtopBrand.setMarkup(svg,'<g onclick="window.compromised=true"><text>SVG text</text><script>window.compromised=true</script></g>');
+  assert.equal(svg.querySelector('g').namespaceURI,'http://www.w3.org/2000/svg');
+  assert.equal(svg.querySelector('g').getAttribute('onclick'),null);
+  assert.equal(svg.querySelector('script'),null);
+  assert.equal(svg.textContent,'SVG text');
+  dom.window.close();
 });
 
 const semesters = require('../semesters');
