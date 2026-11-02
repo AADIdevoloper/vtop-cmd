@@ -74,11 +74,11 @@ Turn it on from the menu's theme button or by searching `dark mode`. It's off by
 Pick your semester once and the extension selects it for you on every page that asks for one, such as Time Table, Attendance and Marks.
 
 - The first page with a semester dropdown asks you to choose. You can also use **Choose default semester** in the menu, or click the semester in the launcher.
-- If you change the semester by hand on a page, your choice stays for that page.
+- It's applied once, when you open a page. If you then pick another semester, your choice stays, even when VTOP reloads that part of the page. Opening the page again from the menu starts with your default.
 - If your saved semester isn't offered on a page, that dropdown is left alone.
 - Registration, application, payment, feedback and similar pages are never changed automatically.
 
-**Course Page:** the registered-course list shows only your default semester's courses. **All semesters** shows everything. If no default is set yet, **Default semester** opens the picker.
+**Course Page:** the registered-course list shows only your default semester's courses. **All semesters** shows everything and stays selected until you open another page. If no default is set yet, **Default semester** opens the picker.
 
 ### Attendance calculator
 

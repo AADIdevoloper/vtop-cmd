@@ -3,7 +3,17 @@
   const clean = value => (value || '').replace(/\s+/g, ' ').trim();
   const selector = 'input,select,textarea';
   let saved = {}, ready = false, running = false, pending;
-  const bars = new Map(), applied = new WeakMap(), nativePickers = new Map();
+  const bars = new Map(), nativePickers = new Map();
+  // Each saved field is filled once per page visit (see content.js). Within a visit, a field VTOP redraws is
+  // filled again only if it comes back empty; a value you chose, or a field you changed, is left alone.
+  let visit = 0, applied = new Map(), filled = new WeakSet();
+  document.addEventListener('vtop-page-visit', () => { visit++; });
+  const slot = (key, field, list) => JSON.stringify([key, fieldKey(field, list)]);
+  const blank = field => !['checkbox','radio'].includes(field.type) && !field.multiple && field.value === '';
+  function markManual(field) {
+    const form = field?.closest?.('form'), key = form && formKey(form);
+    if (key && owns(field)) applied.set(slot(key, field, fields(form)), {visit, manual:true});
+  }
   const root = () => document.getElementById('b5-pagewrapper') || document.getElementById('page-wrapper') || document.getElementById('page-content');
   function fields(form) {
     return [...form.querySelectorAll(selector)].filter(field => {
@@ -71,9 +81,9 @@
           if (field.disabled || !owns(field) || dialog.open && editing?.form===form) continue;
           const value = preset.values[fieldKey(field, list)];
           if (!available(field, value)) continue;
-          const signature = JSON.stringify([key, value, field.tagName === 'SELECT' ? [...field.options].map(o => [o.value,o.disabled]) : null]);
-          if (applied.get(field) === signature) continue;
-          applied.set(field, signature);
+          const id = slot(key, field, list), prior = applied.get(id);
+          if (prior?.visit === visit && (prior.manual || filled.has(field) || !blank(field))) continue;
+          applied.set(id, {visit}); filled.add(field);
           const target=isLookup(field) && document.getElementById(field.dataset.effectdivision);
           const needsLookup=field.tagName==='SELECT' && field.dataset.isprimarycontrol==='true' && target && [...target.querySelectorAll('select')].some(child=>Object.hasOwn(preset.values,fieldKey(child,fields(form))) && !available(child,preset.values[fieldKey(child,fields(form))]));
           if (JSON.stringify(read(field)) === JSON.stringify(value) && !needsLookup) continue;
@@ -228,7 +238,7 @@
   function resetChildren(session,source) {
     for(const control of dependents(session,source)) {
       const field=sourceFor(session,control);
-      control.pendingDesired=false;control.cleared=true;showState(control);
+      control.pendingDesired=false;control.cleared=true;control.refreshed=null;showState(control);
       control.desired=field.tagName==='SELECT' ? field.options[0]?.value || '' : '';
       if(control.copy.tagName==='SELECT')control.copy.replaceChildren(new Option('Loading choices…',''));
       control.copy.disabled=true;control.picker?.sync(true);
@@ -244,6 +254,10 @@
       copy.disabled=source.disabled;
       for(const attr of ['min','max','step']) {if(source.hasAttribute(attr))copy.setAttribute(attr,source.getAttribute(attr));else copy.removeAttribute(attr);}
       if(copy.tagName==='SELECT') {
+        // Page changes elsewhere also trigger this; rebuilding an unchanged list would make an open dropdown jump.
+        const signature=JSON.stringify([source.disabled,[...source.options].map(option=>[option.value,option.text,option.disabled||option.parentElement?.disabled]),control.desired,control.pendingDesired]);
+        if(control.refreshed===signature)continue;
+        control.refreshed=signature;
         copy.replaceChildren(...[...source.options].map(option=>{const item=new Option(option.text,option.value);item.disabled=option.disabled||option.parentElement?.disabled;return item;}));
         if(available(copy,control.desired)) {
           // A saved value stays wanted until you change it or its parent: a later lookup may reload its choices.
@@ -292,6 +306,8 @@
           ui.innerHTML=`<style>${theme}${globalThis.VtopSearchSelect.css}:host{display:block;width:100%}[hidden]{display:none!important}</style>`;
           select.after(mount);select.setAttribute('data-vtop-searchable','');
           const picker=globalThis.VtopSearchSelect.create(select,ui,label(select,0),async value=>{
+            // A pick here is yours, even though the change it fires isn't a trusted event.
+            markManual(select);
             if(globalThis.VtopPageActions)await globalThis.VtopPageActions.change(select,value);else await fallbackChange(select,value);
           });
           record={host:mount,picker};nativePickers.set(select,record);
@@ -314,7 +330,7 @@
     const next = {...saved}; delete next[editing.key];
     if(await persist(next)) { dialog.close(); scan(); }
   });
-  function appliedReset() { for(const form of root()?.querySelectorAll('form') || []) for(const field of fields(form)) applied.delete(field); }
+  function appliedReset() { applied = new Map(); filled = new WeakSet(); }
   for (const name of ['.close','.cancel']) $(name).addEventListener('click',()=>dialog.close());
   // A click on the backdrop discards edits, like Cancel and Esc.
   dialog.addEventListener('click',event=>{if(event.target!==dialog)return;const r=dialog.getBoundingClientRect();if(event.clientX<r.left||event.clientX>r.right||event.clientY<r.top||event.clientY>r.bottom)dialog.close();});
@@ -371,13 +387,15 @@
   document.addEventListener('change',event=>{
     if(!event.isTrusted) return;
     // Preserve manual edits until the page is reopened.
-    const field = event.target;
-    if(owns(field)) {
-      const key = formKey(field.closest('form')), value = saved[key].values[fieldKey(field,fields(field.closest('form')))];
-      applied.set(field,JSON.stringify([key,value,field.tagName==='SELECT'?[...field.options].map(o=>[o.value,o.disabled]):null]));
-    }
+    markManual(event.target);
   },true);
   new MutationObserver(()=>{clearTimeout(pending);pending=setTimeout(scan,160);}).observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['disabled','id','name','hidden','style','class','aria-hidden']});
+  // Presets saved in another tab update this one, so saving here never writes back a stale copy over them.
+  try { chrome.storage.onChanged.addListener((changes, area) => {
+    if (area !== 'local' || !changes.formPresets) return;
+    const next = changes.formPresets.newValue;
+    saved = next && typeof next === 'object' && !Array.isArray(next) ? next : {};
+  }); } catch {}
   try { chrome.storage.local.get(['formPresets']).then(settings=>{saved=settings.formPresets && typeof settings.formPresets==='object' && !Array.isArray(settings.formPresets)?settings.formPresets:{};ready=true;scan();}).catch(()=>{ready=true;scan();}); }
   catch {ready=true;scan();}
 })();

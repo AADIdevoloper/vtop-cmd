@@ -9,6 +9,9 @@
   const courseStates = new WeakMap(), attendanceStates = new WeakMap();
   const courseHosts = new Map();
   let preference = null, ready = false;
+  // All semesters stays chosen for the rest of this page visit, even when VTOP re-renders the course list.
+  let showAllCourses = false;
+  document.addEventListener('vtop-page-visit',()=>{showAllCourses=false;});
 
   function courseDropdown(select) {
     if (select.multiple || select.disabled) return false;
@@ -27,14 +30,14 @@
     const shadow = host.attachShadow({mode:'open'});
     shadow.innerHTML=`<style>:host{display:block;margin:8px 0 12px;font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:inherit}.bar{display:flex;gap:7px;align-items:center;flex-wrap:wrap}button{font:inherit;padding:6px 10px;border:1px solid #8597af;border-radius:7px;background:transparent;color:inherit;cursor:pointer}button[aria-pressed=true]{background:#2459b8;color:#fff;border-color:#2459b8}button:disabled{opacity:.5;cursor:default}button:focus-visible{outline:2px solid #5a86e8;outline-offset:2px}p{font-size:12px;margin:5px 0;opacity:.85}</style><div class="bar" role="group" aria-label="Course semester filter"><span>Courses:</span><button type="button" class="default" aria-pressed="true">Default semester</button><button type="button" class="all" aria-pressed="false">All semesters</button></div><p role="status"></p>`;
     select.before(host);
-    const state = {host,shadow,children:snapshot(select),expected:[...select.options],showAll:false};
+    const state = {host,shadow,children:snapshot(select),expected:[...select.options],showAll:showAllCourses};
     courseHosts.set(host,select);
     shadow.querySelector('.default').addEventListener('click',()=>{
       // With no default yet, the button opens the launcher's semester picker instead of doing nothing.
       if(!preference?.label){document.getElementById('vtop-command-root')?.dispatchEvent(new CustomEvent('vtop-choose-semester'));return;}
-      state.showAll=false;filterCourses(select,state);
+      state.showAll=showAllCourses=false;filterCourses(select,state);
     });
-    shadow.querySelector('.all').addEventListener('click',()=>{state.showAll=true;filterCourses(select,state);});
+    shadow.querySelector('.all').addEventListener('click',()=>{state.showAll=showAllCourses=true;filterCourses(select,state);});
     return state;
   }
   function filterCourses(select,state) {
@@ -161,6 +164,7 @@
   function renderDeadlines(state){
     const entry=deadlineCache.get(state.classId),list=state.shadow.querySelector('ul');list.replaceChildren();
     if(!entry||entry.status==='loading'){const item=document.createElement('li');item.className='muted';item.textContent='Loading…';list.append(item);return;}
+    if(entry.status==='stopped'){const item=document.createElement('li');item.className='muted';item.textContent='Open to see';item.title="Loading stopped when a dashboard was opened. Open this course's dashboard to see its deadlines.";list.append(item);return;}
     if(entry.status==='error'){const item=document.createElement('li');item.className='muted';item.textContent='Unavailable';item.title='Deadlines could not be loaded. Open the dashboard to check.';list.append(item);return;}
     // Submitted work is done; only what still needs attention is listed, as uniform date chips.
     // The assignment and its countdown appear on hover or keyboard focus.
@@ -205,12 +209,16 @@
         deadlineCache.set(classId,{status:'loading'});renderDeadlines(state);
         deadlineController=new AbortController();
         try{storeDeadlines(classId,await loadDeadlines(classId,deadlineController.signal));}
-        catch(error){if(error?.name==='AbortError'){deadlineCache.delete(classId);break;}deadlineCache.set(classId,{status:'error'});}
+        catch(error){if(error?.name==='AbortError'){deadlineCache.set(classId,{status:'stopped'});if(state.host.isConnected)renderDeadlines(state);break;}deadlineCache.set(classId,{status:'error'});}
         if(state.host.isConnected)renderDeadlines(state);
       }
     }finally{deadlineRunning=false;deadlineController=null;}
   }
-  function stopDeadlines(){deadlineQueue=[];deadlineController?.abort();}
+  // Rows still waiting say so instead of showing Loading… forever; a fresh course list queues them again.
+  function stopDeadlines(){
+    for(const {classId,state} of deadlineQueue)if(!freshDeadlines(classId)){deadlineCache.set(classId,{status:'stopped'});if(state.host.isConnected)renderDeadlines(state);}
+    deadlineQueue=[];deadlineController?.abort();
+  }
   // An upload changes what is pending. Forget that course (so the list asks VTOP again) and stop re-caching
   // this dashboard view, which may still show the pre-upload state until VTOP refreshes it.
   let uploadedClass=null;
@@ -262,9 +270,12 @@
     }
   }
   function renderDue(state){
-    const {item,badge}=line(state.record);item.append(badge);state.shadow.querySelector('ul').replaceChildren(item);
+    const {item,badge}=line(state.record);item.append(badge);
+    // Scans run on every page change; only redraw when the countdown text actually differs.
+    const list=state.shadow.querySelector('ul');if(list.textContent!==item.textContent)list.replaceChildren(item);
   }
-  setInterval(()=>{for(const state of liveBadges){if(!state.host.isConnected){liveBadges.delete(state);continue;}state.record?renderDue(state):renderDeadlines(state);}},60000);
+  // Refresh countdowns each minute, except one you're hovering or focused on, so its tooltip and focus stay put.
+  setInterval(()=>{for(const state of liveBadges){if(!state.host.isConnected){liveBadges.delete(state);continue;}if(state.shadow.activeElement||state.host.matches(':hover'))continue;state.record?renderDue(state):renderDeadlines(state);}},60000);
   // Marks: each course's mark table ends with a Total row for Max. Mark, Weightage %, Scored Mark and Weightage Mark.
   // Its Remark cell shows the marks already lost: Weightage % total − Weightage Mark total.
   const MARK_COLUMNS=[/^max\.?\s*mark$/i,/^weightage\s*%$/i,/^scored\s*mark$/i,/^weightage\s*mark$/i];
@@ -305,7 +316,9 @@
   function scan(){scanCourses();scanAttendance();scanDeadlines();scanMarks();}
   try {
     chrome.storage.local.get('defaultSemester').then(settings=>{preference=settings.defaultSemester;ready=true;scan();}).catch(()=>{ready=true;scan();});
-    chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.defaultSemester){preference=changes.defaultSemester.newValue;scanCourses();}});
+    // A default saved in another tab applies from the next page; only a save in this tab re-filters what's on screen.
+    chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.defaultSemester)preference=changes.defaultSemester.newValue;});
+    document.addEventListener('vtop-default-semester-saved',event=>{preference=event.detail;scanCourses();});
   } catch {ready=true;}
   scanAttendance();scanDeadlines();
   let pending;

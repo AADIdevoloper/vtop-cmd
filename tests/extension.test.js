@@ -10,7 +10,7 @@ function setup({ signedIn = true, savedDark = false, savedSemester, savedKnown, 
   w.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   w.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new w.Event('close')); };
   const writes = [];
-  w.chrome = { storage: { local: { get: async () => ({ darkMode: savedDark, defaultSemester: savedSemester, knownSemesters: savedKnown }), set: async value => writes.push(value) }, onChanged: { addListener() {} } } };
+  w.chrome = { storage: { local: { get: async () => ({ darkMode: savedDark, defaultSemester: savedSemester, knownSemesters: savedKnown }), set: async value => writes.push(value) }, onChanged: { addListener(listener) { (w.storageListeners ||= []).push(listener); } } } };
   if (fetch) w.fetch = fetch;
   if (platform) Object.defineProperty(w.navigator, 'platform', { value: platform, configurable: true });
   w.eval(fs.readFileSync(__dirname + '/../brand.js', 'utf8'));
@@ -116,23 +116,31 @@ test('first semester page prompts, saving selects the default and dispatches exa
   dom.window.close();
 });
 
-test('restored default handles AJAX options/replacement, preserves manual selection and skips missing terms', async () => {
+test('the default semester is applied once per page visit; re-renders keep a manual choice, a new page applies it again', async () => {
   const {dom,w,shadow}=setup({html:semesterHTML,savedSemester});
   const select=w.document.querySelector('select'); let changes=0;
   select.addEventListener('change',()=>changes++); await flush();
   assert.equal(select.value,savedSemester.value); assert.equal(changes,1);
   assert.equal(shadow.querySelector('dialog').open,false);
+  // You pick another semester; VTOP re-renders the page with a new dropdown. Your choice stays.
   select.value='VL20252605'; select.dispatchEvent(new w.Event('change',{bubbles:true}));
   w.document.body.append(w.document.createElement('p')); await pause();
   assert.equal(select.value,'VL20252605'); assert.equal(changes,2);
-  const replacement=w.document.createElement('select'); replacement.id='semesterSubId';
-  replacement.innerHTML='<option value="">Choose semester</option>';
-  select.replaceWith(replacement); await pause(); assert.equal(replacement.value,'');
-  let newChanges=0; replacement.addEventListener('change',()=>newChanges++);
-  replacement.add(new w.Option('Fall Semester 2026-27 - VLR','other-id')); await pause();
-  assert.equal(replacement.value,'other-id'); assert.equal(newChanges,1);
-  replacement.innerHTML='<option value="">Choose semester</option><option value="old">Fall Semester 2024-25</option>';
-  await pause(); assert.equal(replacement.value,''); assert.equal(newChanges,1);
+  const rerender=w.document.createElement('select'); rerender.id='semesterSubId';
+  rerender.innerHTML='<option value="">Choose semester</option><option value="VL20252605">Winter Semester 2025-26</option><option value="other-id">Fall Semester 2026-27 - VLR</option>';
+  rerender.value='VL20252605'; let rerenderChanges=0; rerender.addEventListener('change',()=>rerenderChanges++);
+  select.replaceWith(rerender); await pause(); await pause();
+  assert.equal(rerender.value,'VL20252605'); assert.equal(rerenderChanges,0);
+  // Opening a page from VTOP's menu starts a new visit: its dropdown gets the default once, even when options load late.
+  const link=w.document.createElement('a'); link.className='systemB5BtnMenu'; link.dataset.url='academics/common/StudentTimeTable'; link.href='#';
+  link.addEventListener('click',event=>event.preventDefault()); w.document.body.append(link); link.click();
+  const next=w.document.createElement('select'); next.id='semesterSubId'; next.innerHTML='<option value="">Choose semester</option>';
+  let nextChanges=0; next.addEventListener('change',()=>nextChanges++);
+  rerender.replaceWith(next); await pause(); assert.equal(next.value,''); assert.equal(rerender.value,'VL20252605','the page being left is not changed');
+  next.add(new w.Option('Fall Semester 2026-27 - VLR','other-id')); await pause();
+  assert.equal(next.value,'other-id'); assert.equal(nextChanges,1);
+  next.innerHTML='<option value="">Choose semester</option><option value="old">Fall Semester 2024-25</option>';
+  await pause(); assert.equal(next.value,''); assert.equal(nextChanges,1);
   dom.window.close();
 });
 
@@ -257,4 +265,16 @@ test('automatic semester selection never touches registration, application or pa
   }
   const ok=setup({html:`<main id="b5-pagewrapper"><h3>Time Table</h3>${semesterHTML}</main>`,savedSemester});await flush();
   assert.equal(ok.w.document.querySelector('select').value,savedSemester.value);ok.dom.window.close();
+});
+
+test('a default semester saved in another tab leaves this tab\'s dropdown alone until the next page', async () => {
+  const {dom,w}=setup({html:semesterHTML,savedSemester}); await flush();
+  const select=w.document.querySelector('select'); assert.equal(select.value,savedSemester.value);
+  select.value='VL20252605'; select.dispatchEvent(new w.Event('change',{bubbles:true}));
+  let changes=0; select.addEventListener('change',()=>changes++);
+  for (const listener of w.storageListeners) listener({defaultSemester:{newValue:{value:'VL20252605',label:'Winter Semester 2025-26'}}},'local');
+  for (const listener of w.storageListeners) listener({defaultSemester:{newValue:savedSemester}},'local');
+  w.document.body.append(w.document.createElement('p')); await pause();
+  assert.equal(select.value,'VL20252605'); assert.equal(changes,0);
+  dom.window.close();
 });

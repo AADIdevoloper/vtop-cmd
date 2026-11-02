@@ -35,19 +35,35 @@
   const doc = root.document;
   if (!doc || doc.documentElement.hasAttribute('data-vtop-readability-ready')) return;
   doc.documentElement.setAttribute('data-vtop-readability-ready','');
-  let timer;
+  // A full scan runs on load and when dark mode turns on; after that, only the parts of the page that changed
+  // are re-checked (with a full scan again if very many parts changed at once).
+  let timer, full = true;
+  const dirty = new Set();
+  const scope = '#b5-pagewrapper,#page-holder,.modal.show,.dropdown-menu.show,.datepicker-dropdown';
+  const marks = '[data-vtop-readable],[data-vtop-dark-surface]';
   const excluded = 'script,style,svg,canvas,iframe,video,picture,[hidden],[disabled],[aria-disabled="true"],.blockUI';
+  const clear = element => { element.removeAttribute('data-vtop-readable'); element.removeAttribute('data-vtop-dark-surface'); };
   function scan() {
-    // Measure with transitions off: otherwise a button fading between its native and corrected colour reads as
-    // readable mid-fade, loses its fix, fades back, and the next transitionend repeats it (visible flicker).
-    doc.documentElement.setAttribute('data-vtop-readability-scan','');
-    try { measure(); } finally { doc.documentElement.removeAttribute('data-vtop-readability-scan'); }
+    const html = doc.documentElement;
+    // Light mode: drop any fixes and stop, without measuring or restyling the page.
+    if (!html.hasAttribute('data-vtop-command-dark')) { doc.querySelectorAll(marks).forEach(clear); dirty.clear(); full = true; return; }
+    let roots = full || dirty.size > 200 ? [...doc.querySelectorAll(scope)] : [...dirty].filter(element => element.isConnected && element.closest(scope));
+    if (!(full || dirty.size > 200)) roots = roots.filter(element => !roots.some(other => other !== element && other.contains(element)));
+    full = false; dirty.clear();
+    const fixed = roots.flatMap(element => [...(element.matches(marks) ? [element] : []), ...element.querySelectorAll(marks)]);
+    // Only the elements we change are held still while measuring. Removing a fix mid-transition would read a
+    // half-faded colour as readable, drop the fix, fade back and flicker. Other animations keep running.
+    for (const element of fixed) element.setAttribute('data-vtop-readability-hold','');
+    try { measure(fixed, roots); }
+    finally {
+      // Apply the new colours while still held, so releasing the hold starts no transition.
+      void html.offsetWidth;
+      for (const element of fixed) element.removeAttribute('data-vtop-readability-hold');
+    }
   }
-  function measure() {
+  function measure(fixed, roots) {
     // Attributes are our only changes: no native styles, form values or handlers are rewritten.
-    doc.querySelectorAll('[data-vtop-readable]').forEach(e => e.removeAttribute('data-vtop-readable'));
-    doc.querySelectorAll('[data-vtop-dark-surface]').forEach(e => e.removeAttribute('data-vtop-dark-surface'));
-    if (!doc.documentElement.hasAttribute('data-vtop-command-dark')) return;
+    fixed.forEach(clear);
     const backgrounds = new WeakMap();
     function background(element) {
       if (!element) return [16,21,31];
@@ -59,11 +75,8 @@
         color ? blend(color,parent) : parent;
       backgrounds.set(element,value); return value;
     }
-    const scope = '#b5-pagewrapper,#page-holder,.modal.show,.dropdown-menu.show,.datepicker-dropdown';
     const candidates = new Set();
-    doc.querySelectorAll(scope).forEach(container => {
-      candidates.add(container); container.querySelectorAll('*').forEach(e => candidates.add(e));
-    });
+    for (const container of roots) { candidates.add(container); container.querySelectorAll('*').forEach(e => candidates.add(e)); }
     // Some nested views have unnamed white/gray containers, outside the shared component classes.
     for (const element of candidates) {
       if (!element.matches('div,section,article,aside,header,footer,form,fieldset,legend,ul,ol') || element.closest(excluded) || !element.getClientRects().length) continue;
@@ -84,8 +97,22 @@
       if (name) element.setAttribute('data-vtop-readable',name);
     }
   }
-  function schedule() { clearTimeout(timer); timer = setTimeout(scan,120); }
-  new MutationObserver(schedule).observe(doc.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','style','color','hidden','disabled','aria-disabled','data-vtop-command-dark']});
-  doc.addEventListener('transitionend',schedule,true);
+  // Scans are costly on large pages, so they wait for a quiet moment and only follow changes that can matter.
+  function schedule() {
+    clearTimeout(timer);
+    timer = setTimeout(() => root.requestIdleCallback ? root.requestIdleCallback(scan,{timeout:600}) : scan(), 150);
+  }
+  const watched = '#b5-pagewrapper,#page-holder,.modal,.dropdown-menu,.datepicker-dropdown';
+  const within = node => !!(node?.nodeType === 1 ? node : node?.parentElement)?.closest(watched);
+  const opensArea = record => record.type === 'childList' && [...record.addedNodes].some(node => node.nodeType === 1 && (node.matches(watched) || node.querySelector(watched)));
+  new MutationObserver(records => {
+    let changed = false;
+    for (const record of records) {
+      if (record.attributeName === 'data-vtop-command-dark' || opensArea(record)) { full = changed = true; continue; }
+      if (!within(record.target)) continue;
+      dirty.add(record.target.nodeType === 1 ? record.target : record.target.parentElement); changed = true;
+    }
+    if (changed) schedule();
+  }).observe(doc.documentElement,{subtree:true,childList:true,characterData:true,attributes:true,attributeFilter:['class','style','color','hidden','disabled','aria-disabled','data-vtop-command-dark']});
   schedule();
 })(globalThis);

@@ -133,7 +133,8 @@
     if (/registration|payment|refund|password|leave request|withdraw|enroll|application|apply|booking|mess|profile|bank|feedback|re-?exam/i.test(`${page} ${heading}`)) return null;
     const field = select.id || select.name;
     if (!page || !field) return null;
-    const semester = [...doc.querySelectorAll('select')].filter(s=>/semester/i.test(`${s.id} ${s.name}`)).map(s => s.value).filter(Boolean).join('|') || select.dataset.vtopSemesterScope || '';
+    // The Course Page's Default/All scope is a view of the same list, not a different semester, so it isn't part of the key.
+    const semester = [...doc.querySelectorAll('select')].filter(s=>/semester/i.test(`${s.id} ${s.name}`)).map(s => s.value).filter(Boolean).join('|');
     return JSON.stringify([page, semester, field]);
   }
   const api = { attendance, attendanceRows, parseDeadline, assignmentRows, dueSummary, countdown, dueState, assignmentCourses, filterKey };

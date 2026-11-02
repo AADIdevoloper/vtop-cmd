@@ -9,8 +9,9 @@
     // fetch resolves at headers; keep the gate closed until the body has arrived too.
     if(typeof response.clone==='function'&&response.body){
       try{
-        const reader=response.clone().body.getReader();
-        (async()=>{try{while(!(await reader.read()).done){}}finally{reader.releaseLock();end();}})().catch(()=>{});
+        // A streaming or long-held response must not keep the page "busy" forever: give up waiting after 20 s.
+        const reader=response.clone().body.getReader();let ended=false;const finish=()=>{if(!ended){ended=true;end();}};const cap=setTimeout(finish,20000);
+        (async()=>{try{while(!(await reader.read()).done){}}finally{clearTimeout(cap);reader.releaseLock();finish();}})().catch(()=>{});
       }catch{end();}
     }else end();
     return response;
