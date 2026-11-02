@@ -169,7 +169,7 @@ Only VIT decides how it treats browser extensions, so no one can honestly promis
 - **It is read-only.** It never submits a form, uploads a file, registers, applies, pays or changes anything on your account. The only things it "clicks" are menu links, the Home link and dropdowns that load a view.
 - **It never sends two of its own requests at once.** Automatic dropdown changes wait until VTOP has finished loading, then run one at a time. Opening another page cancels any that are still queued.
 - **It caches aggressively.** Results are reused rather than asked for again (see the table below). Assignment results are kept for a random 1–5 hours per course, so refreshes never fall into a regular pattern.
-- **It doesn't log in for you.** It never sees or stores your password, never fills in the CAPTCHA, and never keeps you signed in. Sign-in stays entirely between you and VTOP.
+- **It doesn't log in for you.** It never sees or stores your password and never keeps you signed in. It can fill VTOP's image CAPTCHA on this device (see [Image CAPTCHA autofill](#image-captcha-autofill)), but it never presses Sign in: you always submit the login yourself.
 - **It never talks to any other server.** No analytics, no tracking, no remote code. The manifest only allows it to run on `vtop.vit.ac.in`.
 
 ### Every request the extension makes
@@ -189,7 +189,7 @@ Only VIT decides how it treats browser extensions, so no one can honestly promis
 ### What it never does
 
 - Submit, upload, register, apply, pay, or give feedback.
-- Touch submit buttons, file inputs, password fields or CAPTCHAs.
+- Touch submit buttons, file inputs or password fields, or submit the login form.
 - Change anything automatically on registration, application, payment, feedback or profile pages.
 - Retry failed requests in a loop, or poll VTOP in the background.
 - Send anything to any server other than VTOP.
@@ -240,4 +240,4 @@ Tests use made-up data shaped like VTOP's real markup. No account data is includ
 | `page-runtime.js`, `page-actions.js` | Waits for VTOP to be idle and runs automatic actions one at a time |
 | `pdf-bridge.js`, `pdf-preview.js`, `pdf-viewer.*` | PDF download interception, preview window and PDF.js viewer |
 | `extension-action.js` | Toolbar button |
-| `deadline-cache.js`, `deadline-cache-client.js` | Privileged, account-scoped session-cache relay for Firefox |
+| `deadline-cache.js`, `deadline-cache-client.js` | Account-scoped session-cache relay through the background script, used by both browsers (Firefox content scripts can't reach session storage directly) |
