@@ -74,10 +74,11 @@
     if(message.id!==activeId)return;
     if(message.kind==='not-pdf'){close();return;}
     if(message.kind==='error'){status.textContent='Unable to preview this document. Sign in again if needed, or Shift-click its original download link.';return;}
-    if(message.kind!=='ready' || typeof message.blobUrl!=='string' || !message.blobUrl.startsWith(`blob:${location.origin}/`))return;
+    if(message.kind!=='ready')return;
     const id=message.id;
     try{
-      const response=await fetch(message.blobUrl);const data=await response.arrayBuffer();
+      if(Object.prototype.toString.call(message.bytes)!=='[object ArrayBuffer]')throw new Error('Missing PDF data');
+      const data=message.bytes;
       if(id!==activeId || !dialog.open)return;
       if(new TextDecoder().decode(data.slice(0,5))!=='%PDF-')throw new Error('Not PDF');
       filename=String(message.filename||'document.pdf').replace(/[\\/\x00-\x1f]/g,'_').slice(0,180);

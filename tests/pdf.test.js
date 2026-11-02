@@ -4,6 +4,7 @@ const fs=require('node:fs');
 const {JSDOM}=require('jsdom');
 const source=fs.readFileSync(__dirname+'/../pdf-bridge.js','utf8');
 const pause=()=>new Promise(resolve=>setTimeout(resolve,35));
+const samplePdf=()=>new TextEncoder().encode('%PDF-1.4\npreview test').buffer;
 function bridge({body='%PDF-1.4\nmock',type='application/pdf',ok=true,navigation=false}={}){
  const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window;
  const calls=[],messages=[],opens=[],downloads=[];
@@ -23,6 +24,7 @@ test('VTOP window.open download becomes a PDF preview using original authenticat
  assert.equal(opens.length,0);assert.equal(calls.length,1);assert.equal(calls[0].init.credentials,'same-origin');
  assert.ok(calls[0].url.includes('token=test'));
  const ready=messages.find(m=>m.kind==='ready');assert.ok(ready);assert.equal(ready.filename,'Lecture notes.pdf');
+ assert.equal(new TextDecoder().decode(ready.bytes),'%PDF-1.4\nmock');assert.equal(ready.blobUrl,undefined);
  assert.ok(!JSON.stringify(messages).includes('token=test'));dom.window.close();
 });
 test('external URLs and ordinary VTOP navigation retain native browser behavior',async()=>{
@@ -58,16 +60,18 @@ test('Shift-click bypasses the viewer for native javascript download helpers',()
  anchor.dispatchEvent(new w.MouseEvent('click',{bubbles:true,cancelable:true,shiftKey:true}));
  assert.equal(opens.length,1);assert.equal(calls.length,0);dom.window.close();
 });
-test('preview ignores forged origins and non-local blob references',()=>{
+test('preview ignores forged origins and accepts PDF bytes without fetching page blob URLs',async()=>{
  const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window;
  w.chrome={runtime:{getURL:name=>'chrome-extension://test-extension/'+name}};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
+ w.URL.createObjectURL=()=>'blob:https://vtop.vit.ac.in/preview-copy';w.URL.revokeObjectURL=()=>{};
  let fetched=0;w.fetch=async()=>{fetched++;throw new Error('Should not fetch');};
  w.eval(fs.readFileSync(__dirname+'/../brand.js','utf8'));w.eval(fs.readFileSync(__dirname+'/../pdf-preview.js','utf8'));
  const send=(origin,kind,extra={})=>w.dispatchEvent(new w.MessageEvent('message',{source:w,origin,data:{source:'vtop-command-pdf',id:'pdf-1-1',kind,...extra}}));
  send('https://attacker.example','loading');const dialog=w.document.querySelector('#vtop-pdf-preview').shadowRoot.querySelector('dialog');assert.equal(dialog.open,false);
  send(w.location.origin,'loading');assert.equal(dialog.open,true);
- send(w.location.origin,'ready',{blobUrl:'https://attacker.example/private.pdf'});assert.equal(fetched,0);dom.window.close();
+ send(w.location.origin,'ready',{blobUrl:'blob:https://vtop.vit.ac.in/forged'});assert.equal(fetched,0);assert.equal(w.document.querySelector('#vtop-pdf-preview').shadowRoot.querySelector('iframe'),null);
+ send(w.location.origin,'ready',{bytes:samplePdf()});await pause();assert.equal(fetched,0);assert.ok(w.document.querySelector('#vtop-pdf-preview').shadowRoot.querySelector('iframe'));dom.window.close();
 });
 test('a click on the preview backdrop closes it; clicks inside do not',()=>{
  const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window;
@@ -89,7 +93,7 @@ test('preview Download keeps original PDF bytes and filename, and Close revokes 
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
  w.eval(fs.readFileSync(__dirname+'/../brand.js','utf8'));w.eval(fs.readFileSync(__dirname+'/../pdf-preview.js','utf8'));
  const send=(kind,extra={})=>w.dispatchEvent(new w.MessageEvent('message',{source:w,origin:w.location.origin,data:{source:'vtop-command-pdf',id:'pdf-1-1',kind,...extra}}));
- send('loading');send('ready',{blobUrl:'blob:https://vtop.vit.ac.in/native-document',filename:'Lecture.pdf'});await pause();
+ send('loading');send('ready',{bytes:samplePdf(),filename:'Lecture.pdf'});await pause();
  const shadow=w.document.querySelector('#vtop-pdf-preview').shadowRoot,download=shadow.querySelector('a');
  assert.equal(download.hidden,false);assert.equal(download.download,'Lecture.pdf');assert.equal(download.href,'blob:https://vtop.vit.ac.in/original-copy');
  shadow.querySelector('button').click();assert.equal(download.hidden,true);assert.deepEqual(revoked,['blob:https://vtop.vit.ac.in/original-copy']);dom.window.close();
@@ -162,12 +166,12 @@ test('preview mounts a fresh viewer frame per document and delivers bytes on loa
  w.eval(fs.readFileSync(__dirname+'/../brand.js','utf8'));w.eval(fs.readFileSync(__dirname+'/../pdf-preview.js','utf8'));
  const shadow=w.document.querySelector('#vtop-pdf-preview').shadowRoot;
  const send=(id,kind,extra={})=>w.dispatchEvent(new w.MessageEvent('message',{source:w,origin:w.location.origin,data:{source:'vtop-command-pdf',id,kind,...extra}}));
- send('pdf-1-1','loading');send('pdf-1-1','ready',{blobUrl:'blob:https://vtop.vit.ac.in/a'});await pause();
+ send('pdf-1-1','loading');send('pdf-1-1','ready',{bytes:samplePdf()});await pause();
  const first=shadow.querySelector('iframe');assert.ok(first);
  const posted=[];first.contentWindow.postMessage=(data,origin)=>posted.push({data,origin});first.dispatchEvent(new w.Event('load'));
  assert.equal(posted.length,1);assert.equal(posted[0].data.type,'pdf-data');assert.equal(posted[0].origin,'chrome-extension://test-extension');
  send('pdf-2-2','loading');assert.equal(shadow.querySelector('iframe'),null);
- send('pdf-2-2','ready',{blobUrl:'blob:https://vtop.vit.ac.in/b'});await pause();
+ send('pdf-2-2','ready',{bytes:samplePdf()});await pause();
  const second=shadow.querySelector('iframe');assert.ok(second&&second!==first);assert.notEqual(second.src,first.src);
  assert.equal(shadow.querySelectorAll('iframe').length,1);dom.window.close();
 });
@@ -186,14 +190,14 @@ test('preview shares the command menu palette and follows the saved dark mode, p
  const {dom,w,host,shadow,send,listeners}=previewWindow({dark:true});await pause();
  assert.equal(host.hasAttribute('data-dark'),true);assert.match(shadow.querySelector('style').textContent,/--surface:#171d29/);
  assert.match(shadow.querySelector('.brand').textContent,/VTOP \/ PDF/);assert.equal(shadow.querySelector('.close').textContent,'Esc');
- send('pdf-1-1','loading');send('pdf-1-1','ready',{blobUrl:'blob:https://vtop.vit.ac.in/a'});await pause();
+ send('pdf-1-1','loading');send('pdf-1-1','ready',{bytes:samplePdf()});await pause();
  assert.match(shadow.querySelector('iframe').src,/\?theme=dark#/);
  listeners.forEach(listener=>listener({darkMode:{newValue:false}},'local'));assert.equal(host.hasAttribute('data-dark'),false);dom.window.close();
 });
 test('Escape and Cmd/Ctrl+K forwarded from the viewer close the preview and reopen the command menu',async()=>{
  const {dom,w,shadow,send}=previewWindow();await pause();const keys=[];
  w.document.addEventListener('keydown',event=>keys.push(event.key));
- const open=async id=>{send(id,'loading');send(id,'ready',{blobUrl:'blob:https://vtop.vit.ac.in/a'});await pause();return shadow.querySelector('iframe');};
+ const open=async id=>{send(id,'loading');send(id,'ready',{bytes:samplePdf()});await pause();return shadow.querySelector('iframe');};
  const fromViewer=(frame,key)=>{const nonce=new URL(frame.src).hash.slice(1);w.dispatchEvent(new w.MessageEvent('message',{source:frame.contentWindow,origin:'chrome-extension://test-extension',data:{type:'viewer-key',key,nonce}}));};
  const dialog=shadow.querySelector('dialog');
  fromViewer(await open('pdf-1-1'),'Escape');assert.equal(dialog.open,false);assert.deepEqual(keys,[]);

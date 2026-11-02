@@ -71,9 +71,9 @@
         if (/text\/html|application\/json/i.test(blob.type)) throw new Error('VTOP returned a page instead of a document. Sign in again and retry.');
         download(blob,name); emit('not-pdf',id); return;
       }
-      const blobUrl = createURL(new Blob([blob],{type:'application/pdf'}));
-      emit('ready',id,{blobUrl,filename:name});
-      setTimeout(() => revokeURL(blobUrl),60000);
+      // Send bytes directly; Firefox content scripts cannot reliably fetch page-owned blob URLs.
+      const bytes = await blob.arrayBuffer();
+      emit('ready',id,{bytes,filename:name});
     } catch (error) { emit('error',id,{message:error.message || 'Unable to preview this document.'}); }
   }
   function handleAnchor(anchor) {
