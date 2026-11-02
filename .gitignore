@@ -6,6 +6,5 @@ node_modules/
 npm-debug.log*
 vtop-cmd.zip
 
-*.xpi
 
 __pycache__/

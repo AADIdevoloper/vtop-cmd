@@ -166,7 +166,7 @@ Only VIT decides how it treats browser extensions, so no one can honestly promis
 - **It never sends two of its own requests at once.** Automatic dropdown changes wait until VTOP has finished loading, then run one at a time. Opening another page cancels any that are still queued.
 - **It caches aggressively.** Results are reused rather than asked for again (see the table below). Assignment results are kept for a random 1–5 hours per course, so refreshes never fall into a regular pattern.
 - **It doesn't log in for you.** It never sees or stores your password and never keeps you signed in. It can fill VTOP's image CAPTCHA on this device (see [Image CAPTCHA autofill](#image-captcha-autofill)), but it never presses Sign in: you always submit the login yourself.
-- **It never talks to any other server.** No analytics, no tracking, no remote code. The manifest only allows it to run on `vtop.vit.ac.in`.
+- **It never talks to any other server.** No analytics, no tracking, no remote code. The extension requests access to `vtop.vit.ac.in` when installed so its features are available immediately; its content scripts still run only on VTOP pages under `/vtop/`.
 
 ### Every request the extension makes
 
