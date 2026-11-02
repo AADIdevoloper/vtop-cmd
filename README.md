@@ -17,9 +17,11 @@ It works only on `https://vtop.vit.ac.in/vtop/*`. It reads VTOP the way you do, 
 
 ## Install
 
-The extension isn't on the Chrome Web Store yet, so you load it yourself. It works in Chrome, Brave, Edge and other Chromium browsers.
+The extension isn't published in an add-on store yet, so you load it yourself. Chromium and Firefox builds are available.
 
-1. Build it from this folder:
+### Chrome, Brave and Edge
+
+1. Build the Chromium package from this folder:
    ```bash
    npm ci
    npm run build
@@ -29,7 +31,18 @@ The extension isn't on the Chrome Web Store yet, so you load it yourself. It wor
 3. Choose **Load unpacked** and select `dist/vtop-command`.
 4. Open VTOP and sign in as usual.
 
-After updating the code, run `npm run build` again, click the reload icon on the extension's card, and refresh VTOP.
+### Firefox
+
+1. Build the Firefox package:
+   ```bash
+   npm ci
+   npm run build:firefox
+   ```
+   This creates `dist/vtop-command-firefox/`.
+2. Open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on…**, and select `dist/vtop-command-firefox/manifest.json`.
+3. Open VTOP and sign in as usual.
+
+Temporary add-ons are removed when Firefox closes. After updating the code, rebuild the relevant package, reload the add-on in the browser, and refresh VTOP.
 
 ---
 
@@ -185,10 +198,10 @@ Everything stays in your browser on this device.
 
 | Stored | Where | Kept until |
 | --- | --- | --- |
-| Theme, default semester, list of semester names (up to 30), filter-memory setting, remembered filters (up to 100) | `chrome.storage.local` | You change or clear them, or remove the extension |
-| Form presets | `chrome.storage.local` | You delete the preset or remove the extension |
-| CGPA grade predictions | `chrome.storage.local`, per student | You change them or remove the extension |
-| Pending-assignment cache | `chrome.storage.session` (memory only) | 1–5 hours, an upload on that course, or closing the browser |
+| Theme, default semester, list of semester names (up to 30), filter-memory setting, remembered filters (up to 100) | WebExtension `storage.local` | You change or clear them, or remove the extension |
+| Form presets | WebExtension `storage.local` | You delete the preset or remove the extension |
+| CGPA grade predictions | WebExtension `storage.local`, per student | You change them or remove the extension |
+| Pending-assignment cache | WebExtension `storage.session` (memory only) | 1–5 hours, an upload on that course, or closing the browser |
 | Recent menu choices, attendance figures, PDFs being viewed | The open tab's memory | You close or leave the page |
 
 Your password, marks history and attendance are never saved by the extension.
@@ -201,7 +214,8 @@ Your password, marks history and attendance are never saved by the extension.
 npm ci
 npm test       # unit and DOM tests (Node's test runner + jsdom)
 npm run check  # syntax check of every script
-npm run build  # builds dist/vtop-command and the ZIP
+npm run build          # builds the Chromium package and ZIP
+npm run build:firefox  # builds dist/vtop-command-firefox and its ZIP
 ```
 
 Tests use made-up data shaped like VTOP's real markup. No account data is included. Features have been checked on a signed-in account by browsing only; not every VTOP page has been verified. See [the dark-mode audit](docs/dark-mode-audit.md) for what was checked and its limits.
@@ -210,7 +224,7 @@ Tests use made-up data shaped like VTOP's real markup. No account data is includ
 
 | File | Purpose |
 | --- | --- |
-| `manifest.json` | Manifest V3: VTOP-only content scripts and storage permission |
+| `manifest.json` | Manifest V3 source; the Firefox build substitutes its background-script format and adds Gecko metadata |
 | `brand.js` | Shared logo, colours and platform shortcut |
 | `combobox.js` | Searchable dropdown used in the extension's own windows |
 | `search-select.js` | Type-to-search for Late Hour and Leave Request dropdowns |
