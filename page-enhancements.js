@@ -164,6 +164,7 @@
   function renderDeadlines(state){
     const entry=deadlineCache.get(state.classId),list=state.shadow.querySelector('ul');list.replaceChildren();
     if(!entry||entry.status==='loading'){const item=document.createElement('li');item.className='muted';item.textContent='Loading…';list.append(item);return;}
+    if(entry.status==='stopped'){const item=document.createElement('li');item.className='muted';item.textContent='Open to see';item.title="Loading stopped when a dashboard was opened. Open this course's dashboard to see its deadlines.";list.append(item);return;}
     if(entry.status==='error'){const item=document.createElement('li');item.className='muted';item.textContent='Unavailable';item.title='Deadlines could not be loaded. Open the dashboard to check.';list.append(item);return;}
     // Submitted work is done; only what still needs attention is listed, as uniform date chips.
     // The assignment and its countdown appear on hover or keyboard focus.
@@ -208,12 +209,16 @@
         deadlineCache.set(classId,{status:'loading'});renderDeadlines(state);
         deadlineController=new AbortController();
         try{storeDeadlines(classId,await loadDeadlines(classId,deadlineController.signal));}
-        catch(error){if(error?.name==='AbortError'){deadlineCache.delete(classId);break;}deadlineCache.set(classId,{status:'error'});}
+        catch(error){if(error?.name==='AbortError'){deadlineCache.set(classId,{status:'stopped'});if(state.host.isConnected)renderDeadlines(state);break;}deadlineCache.set(classId,{status:'error'});}
         if(state.host.isConnected)renderDeadlines(state);
       }
     }finally{deadlineRunning=false;deadlineController=null;}
   }
-  function stopDeadlines(){deadlineQueue=[];deadlineController?.abort();}
+  // Rows still waiting say so instead of showing Loading… forever; a fresh course list queues them again.
+  function stopDeadlines(){
+    for(const {classId,state} of deadlineQueue)if(!freshDeadlines(classId)){deadlineCache.set(classId,{status:'stopped'});if(state.host.isConnected)renderDeadlines(state);}
+    deadlineQueue=[];deadlineController?.abort();
+  }
   // An upload changes what is pending. Forget that course (so the list asks VTOP again) and stop re-caching
   // this dashboard view, which may still show the pre-upload state until VTOP refreshes it.
   let uploadedClass=null;
@@ -265,9 +270,12 @@
     }
   }
   function renderDue(state){
-    const {item,badge}=line(state.record);item.append(badge);state.shadow.querySelector('ul').replaceChildren(item);
+    const {item,badge}=line(state.record);item.append(badge);
+    // Scans run on every page change; only redraw when the countdown text actually differs.
+    const list=state.shadow.querySelector('ul');if(list.textContent!==item.textContent)list.replaceChildren(item);
   }
-  setInterval(()=>{for(const state of liveBadges){if(!state.host.isConnected){liveBadges.delete(state);continue;}state.record?renderDue(state):renderDeadlines(state);}},60000);
+  // Refresh countdowns each minute, except one you're hovering or focused on, so its tooltip and focus stay put.
+  setInterval(()=>{for(const state of liveBadges){if(!state.host.isConnected){liveBadges.delete(state);continue;}if(state.shadow.activeElement||state.host.matches(':hover'))continue;state.record?renderDue(state):renderDeadlines(state);}},60000);
   // Marks: each course's mark table ends with a Total row for Max. Mark, Weightage %, Scored Mark and Weightage Mark.
   // Its Remark cell shows the marks already lost: Weightage % total − Weightage Mark total.
   const MARK_COLUMNS=[/^max\.?\s*mark$/i,/^weightage\s*%$/i,/^scored\s*mark$/i,/^weightage\s*mark$/i];

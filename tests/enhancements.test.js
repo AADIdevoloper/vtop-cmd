@@ -124,7 +124,10 @@ test('opening a course dashboard stops background deadline requests',async()=>{
  const {dom,w}=setup(courseList(['A1','B2','C3']),{},(url,init)=>new Promise((resolve,reject)=>{calls.push(init.body.get('classId'));init.signal.addEventListener('abort',()=>{const error=new Error('aborted');error.name='AbortError';reject(error);});}));
  await pause();assert.deepEqual(calls,['A1']);
  w.document.querySelector('[onclick*="myFunction"]').dispatchEvent(new w.MouseEvent('click',{bubbles:true}));await pause();
- assert.deepEqual(calls,['A1']);dom.window.close();
+ assert.deepEqual(calls,['A1']);
+ // Rows that were still waiting say so, instead of showing Loading… forever.
+ const states=[...w.document.querySelectorAll('.vtop-course-deadlines')].map(host=>host.shadowRoot.querySelector('ul').textContent.trim());
+ assert.deepEqual(states,['Open to see','Open to see','Open to see']);dom.window.close();
 });
 test('course dashboard shows a countdown under each pending due date only',async()=>{
  const {dom,w}=setup(`<main id="b5-pagewrapper">${dashboardHTML([['Case Study - I','24-Oct-2099',''],['Lab record','01-Jan-2020','21 Oct 2026 10:18 PM']])}</main>`);await pause();
