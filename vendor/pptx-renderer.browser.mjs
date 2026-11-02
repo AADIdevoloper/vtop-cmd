@@ -2273,7 +2273,7 @@ function cF() {
               }) : function(k) {
                 setTimeout(y, 0, k);
               }, g.setImmediate = function(k) {
-                typeof k != "function" && (k = new Function("" + k));
+                if (typeof k != "function") throw new TypeError("setImmediate callback must be a function");
                 for (var S = new Array(arguments.length - 1), b = 0; b < S.length; b++) S[b] = arguments[b + 1];
                 var _ = { callback: k, args: S };
                 return f[h] = _, s(h), h++;
@@ -6867,7 +6867,7 @@ function Nw(t, e, n, r, i) {
         _e.textContent = Ae, _e.style.whiteSpace = "nowrap", ce.appendChild(_e), Du(ce, Z.text.slice(Ie));
       } else if (Z.text && / {2}/.test(Z.text)) {
         const ye = Z.text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/ {2}/g, "  ");
-        ce.innerHTML = ye;
+        ce.textContent = Z.text.replace(/ {2}/g, " \u00a0");
       } else
         ce.textContent = Z.text;
       Ae && (Z.text === Ae || Z.text && Z.text !== Ae && Ue) && (ce.style.whiteSpace = "nowrap");
@@ -61565,7 +61565,7 @@ var Po, gp, gc, Oi, yc, yp, xp, Il, Bl, k2, b2, kp, S2, xc, _2, hM, Sr, w2, Ol, 
           return U(h, function(x) {
             var k = x.left - s, S = x.top - u;
             y += '<g transform="translate(' + k + "," + S + ')">' + x.dom + "</g>";
-          }), v.painter.getSvgRoot().innerHTML = y, n.connectedBackgroundColor && v.painter.setBackgroundColor(n.connectedBackgroundColor), v.refreshImmediately(), v.painter.toDataURL();
+          }), globalThis.VtopBrand.setMarkup(v.painter.getSvgRoot(), y), n.connectedBackgroundColor && v.painter.setBackgroundColor(n.connectedBackgroundColor), v.refreshImmediately(), v.painter.toDataURL();
         } else
           return n.connectedBackgroundColor && v.add(new nn({
             shape: {
@@ -72489,23 +72489,23 @@ var eV = (
     }, t.prototype.show = function(e, n) {
       clearTimeout(this._hideTimeout), clearTimeout(this._longHideTimeout);
       var r = this.el, i = r.style, a = this._styleCoord;
-      r.innerHTML ? i.cssText = jW + JW(e, !this._firstShow, this._longHide, this._enableDisplayTransition) + qS(a[0], a[1], !0) + ("border-color:" + al(n) + ";") + (e.get("extraCssText") || "") + (";pointer-events:" + (this._enterable ? "auto" : "none")) : i.display = "none", this._show = !0, this._firstShow = !1, this._longHide = !1;
+      r.childNodes.length ? i.cssText = jW + JW(e, !this._firstShow, this._longHide, this._enableDisplayTransition) + qS(a[0], a[1], !0) + ("border-color:" + al(n) + ";") + (e.get("extraCssText") || "") + (";pointer-events:" + (this._enterable ? "auto" : "none")) : i.display = "none", this._show = !0, this._firstShow = !1, this._longHide = !1;
     }, t.prototype.setContent = function(e, n, r, i, a) {
       var o = this.el;
       if (e == null) {
-        o.innerHTML = "";
+        o.replaceChildren();
         return;
       }
       var l = "";
       if (Fe(a) && r.get("trigger") === "item" && !n5(r) && (l = qW(r, i, a)), Fe(e))
-        o.innerHTML = e + l;
+        globalThis.VtopBrand.setMarkup(o, e + l);
       else if (e) {
-        o.innerHTML = "", be(e) || (e = [e]);
+        o.replaceChildren(), be(e) || (e = [e]);
         for (var s = 0; s < e.length; s++)
           Eu(e[s]) && e[s].parentNode !== o && o.appendChild(e[s]);
         if (l && o.childNodes.length) {
           var u = document.createElement("div");
-          u.innerHTML = l, o.appendChild(u);
+          globalThis.VtopBrand.setMarkup(u, l), o.appendChild(u);
         }
       }
     }, t.prototype.setEnterable = function(e) {
@@ -73982,7 +73982,7 @@ var $V = (function() {
     var a = !e.nodeName || e.nodeName.toUpperCase() === "CANVAS";
     this._opts = r = he({}, r || {}), this.dpr = r.devicePixelRatio || Tf, this._singleCanvas = a, this.root = e;
     var o = e.style;
-    o && (_$(e), e.innerHTML = ""), this.storage = n;
+    o && (_$(e), e.replaceChildren()), this.storage = n;
     var l = this._zlevelList;
     this._prevDisplayList = [];
     var s = this._layers;
@@ -74223,7 +74223,7 @@ var $V = (function() {
     var n = this._layers[e];
     n && n.clear();
   }, t.prototype.dispose = function() {
-    this.root.innerHTML = "", this.root = this.storage = this._domRoot = this._layers = null;
+    this.root.replaceChildren(), this.root = this.storage = this._domRoot = this._layers = null;
   }, t.prototype.getRenderedCanvas = function(e) {
     if (e = e || {}, this._singleCanvas && !this._compositeManually)
       return this._layers[Ro].dom;
@@ -78802,7 +78802,7 @@ class a1 extends EventTarget {
     this.slideHandles.clear(), this.textIndexCache = null, this.disposeAllCharts();
     for (const r of this.mediaUrlCache.values())
       URL.revokeObjectURL(r);
-    this.mediaUrlCache.clear(), this.container.innerHTML = "", this.activeRenderMode = null;
+    this.mediaUrlCache.clear(), this.container.replaceChildren(), this.activeRenderMode = null;
   }
   [Symbol.dispose]() {
     this.destroy();
@@ -78899,7 +78899,7 @@ class a1 extends EventTarget {
           (n = this.cleanupScrollObserver) == null || n.call(this), this.cleanupScrollObserver = void 0, (r = this.cleanupListMount) == null || r.call(this), this.cleanupListMount = void 0, this.ensureListSlideMountedFn = void 0, this.clearSearchHighlights(), this.mountedSlides.clear();
           for (const l of this.slideHandles.values())
             l.dispose();
-          if (this.slideHandles.clear(), this.disposeAllCharts(), this.container.innerHTML = "", this.container.style.position = "relative", this.activeRenderMode === "slide" ? this.renderSingleSlide(i, a, o) : this.listOptions.windowed ? await this.renderAllSlidesWindowed(
+          if (this.slideHandles.clear(), this.disposeAllCharts(), this.container.replaceChildren(), this.container.style.position = "relative", this.activeRenderMode === "slide" ? this.renderSingleSlide(i, a, o) : this.listOptions.windowed ? await this.renderAllSlidesWindowed(
             i,
             a,
             o,
@@ -78958,7 +78958,7 @@ class a1 extends EventTarget {
   }
   mountListSlide(e, n, r, i, a) {
     if (!this.presentation || n.dataset.mounted === "1") return;
-    n.dataset.mounted = "1", n.innerHTML = "", this.mountedSlides.add(e);
+    n.dataset.mounted = "1", n.replaceChildren(), this.mountedSlides.add(e);
     const o = this.presentation.slides[e];
     try {
       const l = ev(this.presentation, o, {
@@ -78980,7 +78980,7 @@ class a1 extends EventTarget {
     if (n.dataset.mounted !== "1") return;
     n.dataset.mounted = "0", this.mountedSlides.delete(e);
     const i = this.slideHandles.get(e);
-    i && (i.dispose(), this.slideHandles.delete(e)), n.innerHTML = "", n.style.background = "#fff", n.style.display = "", n.style.alignItems = "", n.style.justifyContent = "", n.style.border = "", n.style.color = "", n.style.fontSize = "", n.style.height = `${r}px`, this.emitSlideUnmounted(e);
+    i && (i.dispose(), this.slideHandles.delete(e)), n.replaceChildren(), n.style.background = "#fff", n.style.display = "", n.style.alignItems = "", n.style.justifyContent = "", n.style.border = "", n.style.color = "", n.style.fontSize = "", n.style.height = `${r}px`, this.emitSlideUnmounted(e);
   }
   async renderAllSlidesFull(e, n, r, i) {
     if (!this.presentation) return;
@@ -79065,7 +79065,7 @@ class a1 extends EventTarget {
     if (!i) return;
     for (const o of this.slideHandles.values())
       o.dispose();
-    this.slideHandles.clear(), this.disposeAllCharts(), this.container.innerHTML = "", this.mountedSlides.clear(), this.mountedSlides.add(this.currentSlide);
+    this.slideHandles.clear(), this.disposeAllCharts(), this.container.replaceChildren(), this.mountedSlides.clear(), this.mountedSlides.add(this.currentSlide);
     const a = document.createElement("div");
     a.style.cssText = `
       width: ${n}px; height: ${r}px;

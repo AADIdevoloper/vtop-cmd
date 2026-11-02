@@ -5,7 +5,7 @@
   function create(select, container, name, onChoose) {
     const doc = select.ownerDocument, id = `vtop-options-${++sequence}`;
     const picker = doc.createElement('div'); picker.className = 'select-picker';
-    picker.innerHTML = `<input type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" autocomplete="off" spellcheck="false"><div class="select-options" role="listbox" hidden></div><div class="select-message" role="status" aria-live="polite"></div>`;
+    globalThis.VtopBrand.setMarkup(picker, `<input type="search" role="combobox" aria-autocomplete="list" aria-expanded="false" autocomplete="off" spellcheck="false"><div class="select-options" role="listbox" hidden></div><div class="select-message" role="status" aria-live="polite"></div>`);
     const input = picker.querySelector('input'), list = picker.querySelector('[role=listbox]'), message = picker.querySelector('[role=status]');
     input.setAttribute('aria-label',name);input.setAttribute('aria-controls',id);list.id=id;list.setAttribute('aria-label',`${name} choices`);
     if(select.multiple)list.setAttribute('aria-multiselectable','true');

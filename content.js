@@ -8,7 +8,7 @@
   const shadow = host.attachShadow({ mode: 'open' });
   const { logo, tokens, font, shortcut } = globalThis.VtopBrand;
   const combobox = globalThis.VtopCombobox;
-  shadow.innerHTML = `
+  globalThis.VtopBrand.setMarkup(shadow, `
     <style>
       :host{all:initial;color-scheme:light;${tokens.light};font:${font};color:var(--text)}
       :host([data-dark]){color-scheme:dark;${tokens.dark}}
@@ -46,7 +46,7 @@
       <div class="meta"><span class="section">ALL PAGES</span><span class="count" role="status" aria-live="polite"></span></div>
       <div class="results" id="results" role="listbox" aria-label="VTOP pages"></div>
       <footer><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span><span class="local">On your device. In your flow.</span></footer>
-    </dialog>`;
+    </dialog>`);
   document.documentElement.append(host);
   const dialog = shadow.querySelector('dialog');
   const input = shadow.querySelector('.search input');

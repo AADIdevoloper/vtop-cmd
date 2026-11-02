@@ -28,7 +28,7 @@
   function createCourseState(select) {
     const host = document.createElement('div'); host.className='vtop-course-scope';
     const shadow = host.attachShadow({mode:'open'});
-    shadow.innerHTML=`<style>:host{display:block;margin:8px 0 12px;font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:inherit}.bar{display:flex;gap:7px;align-items:center;flex-wrap:wrap}button{font:inherit;padding:6px 10px;border:1px solid #8597af;border-radius:7px;background:transparent;color:inherit;cursor:pointer}button[aria-pressed=true]{background:#2459b8;color:#fff;border-color:#2459b8}button:disabled{opacity:.5;cursor:default}button:focus-visible{outline:2px solid #5a86e8;outline-offset:2px}p{font-size:12px;margin:5px 0;opacity:.85}</style><div class="bar" role="group" aria-label="Course semester filter"><span>Courses:</span><button type="button" class="default" aria-pressed="true">Default semester</button><button type="button" class="all" aria-pressed="false">All semesters</button></div><p role="status"></p>`;
+    globalThis.VtopBrand.setMarkup(shadow, `<style>:host{display:block;margin:8px 0 12px;font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:inherit}.bar{display:flex;gap:7px;align-items:center;flex-wrap:wrap}button{font:inherit;padding:6px 10px;border:1px solid #8597af;border-radius:7px;background:transparent;color:inherit;cursor:pointer}button[aria-pressed=true]{background:#2459b8;color:#fff;border-color:#2459b8}button:disabled{opacity:.5;cursor:default}button:focus-visible{outline:2px solid #5a86e8;outline-offset:2px}p{font-size:12px;margin:5px 0;opacity:.85}</style><div class="bar" role="group" aria-label="Course semester filter"><span>Courses:</span><button type="button" class="default" aria-pressed="true">Default semester</button><button type="button" class="all" aria-pressed="false">All semesters</button></div><p role="status"></p>`);
     select.before(host);
     const state = {host,shadow,children:snapshot(select),expected:[...select.options],showAll:showAllCourses};
     courseHosts.set(host,select);
@@ -99,7 +99,7 @@
         if(!state||!state.host.isConnected) {
           const host=document.createElement('div');host.className='vtop-row-attendance';
           const shadow=host.attachShadow({mode:'open'});
-          shadow.innerHTML=`<style>:host{display:block;min-width:170px;margin-top:8px;font:12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:inherit}.target{text-align:center;opacity:.8}p{margin:5px 0 0;white-space:normal;text-align:center}</style><div class="target">Target: 75%</div><p role="status" aria-live="polite"></p>`;
+          globalThis.VtopBrand.setMarkup(shadow, `<style>:host{display:block;min-width:170px;margin-top:8px;font:12px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:inherit}.target{text-align:center;opacity:.8}p{margin:5px 0 0;white-space:normal;text-align:center}</style><div class="target">Target: 75%</div><p role="status" aria-live="polite"></p>`);
           (row.cells[p>=0?p:t]).append(host);
           state={host,shadow,attended,total};attendanceStates.set(row,state);
           host.title='Estimate using equally weighted future classes.';
@@ -152,7 +152,7 @@
   const istDate=(time,dateOnly)=>new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',...(dateOnly?{}:{hour:'numeric',minute:'2-digit'})}).format(time);
   function badgeHost(cell,className){
     const host=document.createElement('div');host.className=className;
-    const shadow=host.attachShadow({mode:'open'});shadow.innerHTML=`<style>${DUE_STYLE}</style><ul></ul>`;
+    const shadow=host.attachShadow({mode:'open'});globalThis.VtopBrand.setMarkup(shadow, `<style>${DUE_STYLE}</style><ul></ul>`);
     cell.append(host);return {host,shadow};
   }
   function line(record){

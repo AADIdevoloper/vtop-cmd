@@ -5,7 +5,7 @@
   const shadow=host.attachShadow({mode:'open'});
   const { logo, tokens, font, shortcut } = globalThis.VtopBrand;
   // Same surface, header and button language as the command menu (content.js).
-  shadow.innerHTML=`<style>
+  globalThis.VtopBrand.setMarkup(shadow, `<style>
     :host{all:initial;color-scheme:light;${tokens.light};font:${font};color:var(--text)}
     :host([data-dark]){color-scheme:dark;${tokens.dark}}
     *{box-sizing:border-box}
@@ -23,7 +23,7 @@
     iframe{display:block;width:100%;flex:1;min-height:0;border:0;background:var(--surface)}
     @media(max-width:480px){.brand-text{display:none}header{padding:12px 14px}}
     @media(prefers-reduced-motion:no-preference){dialog[open]{animation:arrive .13s ease-out}@keyframes arrive{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}}
-  </style><dialog aria-label="Document preview"><header><span class="brand">${logo}<span class="brand-text">VTOP / PREVIEW</span></span><h2>Document preview</h2><a class="download" hidden>Download</a><button class="close" type="button" aria-label="Close document preview">Esc</button></header><div class="status" role="status" aria-live="polite"></div></dialog>`;
+  </style><dialog aria-label="Document preview"><header><span class="brand">${logo}<span class="brand-text">VTOP / PREVIEW</span></span><h2>Document preview</h2><a class="download" hidden>Download</a><button class="close" type="button" aria-label="Close document preview">Esc</button></header><div class="status" role="status" aria-live="polite"></div></dialog>`);
   document.documentElement.append(host);
   const dialog=shadow.querySelector('dialog'),status=shadow.querySelector('.status'),download=shadow.querySelector('.download');
   const viewerURL=chrome.runtime.getURL('pdf-viewer.html');
