@@ -19,9 +19,17 @@ It works only on `https://vtop.vit.ac.in/vtop/*`. It reads VTOP the way you do, 
 
 The extension isn't published in an add-on store yet, so you load it yourself. This repository builds the Firefox extension for Firefox and Zen Browser.
 
-Generated packages go in `dist/`, which is intentionally not tracked in Git. You can load the repository's top-level manifest directly, or build a Firefox package and distributable ZIP.
+A packaged `.xpi` file is included in this folder as `2c0b67cc05c2464aa0d1-1.1.0.xpi`. You can install that directly in Firefox or Zen Browser, or you can load the repository's top-level manifest directly while developing.
 
 ### Firefox and Zen Browser
+
+#### Install from the packaged XPI
+
+1. In Firefox or Zen Browser, open `about:addons`.
+2. Choose **Install Add-on From File…** or drag the `.xpi` file from this folder onto the add-ons page.
+3. Confirm the installation and open VTOP.
+
+#### Load the extension directly from source
 
 1. Open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on…**, and select the repository's top-level `manifest.json`.
 2. Open VTOP and sign in as usual.
