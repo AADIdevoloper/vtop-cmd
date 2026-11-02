@@ -19,15 +19,7 @@ It works only on `https://vtop.vit.ac.in/vtop/*`. It reads VTOP the way you do, 
 
 The extension isn't published in an add-on store yet, so you load it yourself. This repository builds the Firefox extension for Firefox and Zen Browser.
 
-A packaged `.xpi` file is included in this folder as `2c0b67cc05c2464aa0d1-1.1.0.xpi`. You can install that directly in Firefox or Zen Browser, or you can load the repository's top-level manifest directly while developing.
-
 ### Firefox and Zen Browser
-
-#### Install from the packaged XPI
-
-1. In Firefox or Zen Browser, open `about:addons`.
-2. Choose **Install Add-on From File…** or drag the `.xpi` file from this folder onto the add-ons page.
-3. Confirm the installation and open VTOP.
 
 #### Load the extension directly from source
 
@@ -41,7 +33,7 @@ To create a distributable ZIP instead, build the Firefox package:
    npm ci
    npm run build
    ```
-This creates `dist/vtop-command-firefox/` and its ZIP.
+This creates `dist/vtop-command-firefox/` and `dist/vtop-command-firefox-1.2.0.zip`. Use this clean package for Mozilla signing; signed XPI files are kept out of the source repository.
 
 Temporary add-ons are removed when Firefox closes. After updating the code, rebuild the relevant package, remove or reload the old add-on, and refresh VTOP.
 
@@ -203,7 +195,7 @@ Everything stays in your browser on this device.
 | Theme, default semester, list of semester names (up to 30), filter-memory setting, remembered filters (up to 100) | WebExtension `storage.local` | You change or clear them, or remove the extension |
 | Form presets | WebExtension `storage.local` | You delete the preset or remove the extension |
 | CGPA grade predictions | WebExtension `storage.local`, per student | You change them or remove the extension |
-| Pending-assignment cache | WebExtension `storage.session` (memory only) | 1–5 hours, an upload on that course, or closing the browser |
+| Pending-assignment cache | Account-scoped background `storage.session` (memory only) | 1–5 hours, an upload on that course, or closing the browser |
 | Recent menu choices, attendance figures, PDFs being viewed | The open tab's memory | You close or leave the page |
 
 Your password, marks history and attendance are never saved by the extension.
@@ -239,4 +231,5 @@ Tests use made-up data shaped like VTOP's real markup. No account data is includ
 | `form-presets.js` | Form presets and their editor |
 | `page-runtime.js`, `page-actions.js` | Waits for VTOP to be idle and runs automatic actions one at a time |
 | `pdf-bridge.js`, `pdf-preview.js`, `pdf-viewer.*` | PDF download interception, preview window and PDF.js viewer |
-| `extension-action.js` | Toolbar button and session-storage access |
+| `extension-action.js` | Toolbar button |
+| `deadline-cache.js`, `deadline-cache-client.js` | Privileged, account-scoped session-cache relay for Firefox |

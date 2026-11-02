@@ -5,3 +5,5 @@ node_modules/
 /.gravitas/
 npm-debug.log*
 vtop-cmd.zip
+
+*.xpi
