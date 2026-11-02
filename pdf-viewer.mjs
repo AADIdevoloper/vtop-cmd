@@ -1,8 +1,8 @@
 import * as pdfjs from './vendor/pdf.mjs';
 pdfjs.GlobalWorkerOptions.workerSrc=new URL('./vendor/pdf.worker.mjs',import.meta.url).href;
 const $=selector=>document.querySelector(selector),nonce=location.hash.slice(1);
-// ancestorOrigins survives referrer policies that strip document.referrer.
-const parentOrigin=location.ancestorOrigins?.[0]||(document.referrer?new URL(document.referrer).origin:'https://vtop.vit.ac.in');
+// Firefox can report the extension URL as this frame's referrer; this viewer is only embedded on VTOP.
+const parentOrigin='https://vtop.vit.ac.in';
 const container=$('#pages'),states=[],nearby=new Set(),GUTTER=48;
 // Match the command menu's palette and follow its dark-mode setting live.
 if(globalThis.VtopBrand){const style=document.createElement('style');style.textContent=`:root{color-scheme:light;${VtopBrand.tokens.light}}:root[data-dark]{color-scheme:dark;${VtopBrand.tokens.dark}}`;document.head.prepend(style);}
@@ -118,8 +118,24 @@ window.addEventListener('keydown',event=>{
 });
 container.addEventListener('scroll',()=>{if(scrollFrame)return;scrollFrame=requestAnimationFrame(()=>{scrollFrame=null;updateCurrent();});},{passive:true});
 window.addEventListener('message',async event=>{
- if(received||event.source!==parent||event.origin!==parentOrigin||event.data?.type!=='pdf-data'||event.data.nonce!==nonce||!(event.data.bytes instanceof ArrayBuffer))return;
- received=true;notify('viewer-received');status('Opening PDF…');
+ if(received||event.source!==parent||event.origin!==parentOrigin||event.data?.type!=='pdf-data'||event.data.nonce!==nonce||Object.prototype.toString.call(event.data.bytes)!=='[object ArrayBuffer]')return;
+ received=true;notify('viewer-received');
+ const documentType=event.data.documentType||'pdf';
+ document.documentElement.dataset.type=documentType;
+ if(documentType==='pptx'){
+  status('Opening presentation…');
+  try{
+   const {renderPptx}=await import('./pptx-viewer.mjs');
+   await renderPptx(event.data.bytes,container);
+   status('');notify('viewer-loaded');
+  }catch(error){
+   console.error('Unable to render PowerPoint presentation.',error);
+   status('This presentation could not be opened. You can still download the original using Download above.');
+   notify('viewer-error');
+  }
+  return;
+ }
+ status('Opening PDF…');
  let timer;
  try{
   // VTOP's PDFs often carry malformed form fields and font hints; PDF.js recovers, so only real errors are logged.

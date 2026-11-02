@@ -15,7 +15,28 @@
     matches: event => (mac ? event.metaKey && !event.ctrlKey : event.ctrlKey && !event.metaKey) &&
       !event.altKey && !event.shiftKey && (event.key?.toLowerCase() === 'k' || event.code === 'KeyK')
   };
-  const api = { logo, tokens, font, shortcut };
+  function setMarkup(target, markup) {
+    const svg = target.namespaceURI === 'http://www.w3.org/2000/svg';
+    const parsed = new DOMParser().parseFromString(
+      svg ? `<svg xmlns="http://www.w3.org/2000/svg">${markup}</svg>` : `<div>${markup}</div>`,
+      svg ? 'image/svg+xml' : 'text/html'
+    );
+    const source = svg ? parsed.documentElement : parsed.body.firstElementChild;
+    if (!source || svg && source.localName === 'parsererror') throw new Error('Unable to parse extension UI markup.');
+    source.querySelectorAll('script,iframe,object,embed,base,meta,link,foreignObject,parsererror').forEach(element => element.remove());
+    for (const element of [source, ...source.querySelectorAll('*')]) {
+      for (const attribute of [...element.attributes]) {
+        if (/^on/i.test(attribute.name) ||
+            /^(?:href|src|xlink:href|formaction)$/i.test(attribute.name) && /^\s*javascript:/i.test(attribute.value)) {
+          element.removeAttribute(attribute.name);
+        }
+      }
+    }
+    const fragment = target.ownerDocument.createDocumentFragment();
+    for (const node of [...source.childNodes]) fragment.append(target.ownerDocument.importNode(node, true));
+    target.replaceChildren(fragment);
+  }
+  const api = { logo, tokens, font, shortcut, setMarkup };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.VtopBrand = api;
 })(globalThis);

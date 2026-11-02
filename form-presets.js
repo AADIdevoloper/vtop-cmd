@@ -30,7 +30,7 @@
   }
   function formKey(form) {
     const container = root();
-    if (!container?.contains(form) || form.querySelector('input[type=password]')) return null;
+    if (form.id !== 'LateHourRequestForm' || !container?.contains(form) || form.querySelector('input[type=password]')) return null;
     const heading = clean(container.querySelector('h1,h2,h3,h4,h5,h6,.card-header,.panel-title')?.textContent);
     const identity = form.id || form.getAttribute('name') || String([...container.querySelectorAll('form')].indexOf(form));
     return JSON.stringify([location.pathname, heading, identity, (form.getAttribute('action') || '').split('?')[0]]);
@@ -113,7 +113,7 @@
     :host([data-dark]){color-scheme:dark;${tokens.dark}}
     *{box-sizing:border-box}[hidden]{display:none!important}button,input,select,textarea{font:inherit}button{cursor:pointer}button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible{outline:2px solid var(--accent);outline-offset:3px}
   `;
-  shadow.innerHTML = `<style>${theme}${globalThis.VtopCombobox?.css || ''}
+  globalThis.VtopBrand.setMarkup(shadow, `<style>${theme}${globalThis.VtopCombobox?.css || ''}
     dialog{padding:0;margin:8vh auto 0;width:min(620px,calc(100vw - 28px));max-height:84vh;border:1px solid var(--line);border-radius:20px;background:var(--surface);color:var(--text);box-shadow:0 24px 100px #0005;overflow:hidden}
     dialog[open]{display:flex;flex-direction:column}dialog::backdrop{background:#10182788;backdrop-filter:blur(5px)}
     header{display:flex;gap:12px;align-items:center;padding:20px 22px 12px;flex-shrink:0}.brand{display:flex;align-items:center;gap:9px;font-size:11px;font-weight:750;letter-spacing:2px;color:var(--muted)}.brand .logo{width:24px;height:24px}.spacer{flex:1}
@@ -129,12 +129,13 @@
     </style><dialog aria-labelledby="title" aria-describedby="preset-page"><header><span class="brand">${logo}VTOP / PRESETS</span><span class="spacer"></span><button type="button" class="close" aria-label="Close preset">Esc</button></header>
     <div class="intro"><h2 id="title">Create form preset</h2><p class="page" id="preset-page"></p></div><div class="meta"><span class="field-count"></span><span>ONLY ON THIS DEVICE</span></div>
     <div class="body"><div class="fields"></div><details><summary>About this preset</summary><p>Saved values fill this form when you return. You still review and submit it yourself.</p><p>Type in a dropdown to search its choices. School, venue and work choices load their dependent fields from VTOP. Nothing is submitted.</p><p>Passwords, security codes, hidden fields and files are excluded.</p></details></div>
-    <footer><label class="toggle-row"><span><span class="toggle-title">Automatically fill this form</span><span class="toggle-help">Turn off to keep your preset without applying it.</span></span><input class="enabled" type="checkbox" role="switch" aria-label="Automatically fill this form" checked></label><div class="actions"><button type="button" class="delete">Delete preset</button><button type="button" class="cancel">Cancel</button><button type="button" class="save">Save preset</button></div><p class="status" role="status"></p></footer></dialog>`;
+    <footer><label class="toggle-row"><span><span class="toggle-title">Automatically fill this form</span><span class="toggle-help">Turn off to keep your preset without applying it.</span></span><input class="enabled" type="checkbox" role="switch" aria-label="Automatically fill this form" checked></label><div class="actions"><button type="button" class="delete">Delete preset</button><button type="button" class="cancel">Cancel</button><button type="button" class="save">Save preset</button></div><p class="status" role="status"></p></footer></dialog>`);
   document.body.append(host);
   const dialog = shadow.querySelector('dialog'), $ = s => shadow.querySelector(s);
   let editing, previousFocus;
   function open(form, button) {
-    const key = formKey(form), list = fields(form), preset = saved[key];
+    const key = formKey(form); if (!key) return;
+    const list = fields(form), preset = saved[key];
     previousFocus = button;
     editing = {key, form, controls:[], queue:[], loading:false, cancelled:false};
     $('.body').scrollTop = 0;
@@ -303,7 +304,7 @@
         let record=nativePickers.get(select);
         if(!record) {
           const mount=document.createElement('span');mount.className='vtop-search-select';const ui=mount.attachShadow({mode:'open'});
-          ui.innerHTML=`<style>${theme}${globalThis.VtopSearchSelect.css}:host{display:block;width:100%}[hidden]{display:none!important}</style>`;
+          globalThis.VtopBrand.setMarkup(ui, `<style>${theme}${globalThis.VtopSearchSelect.css}:host{display:block;width:100%}[hidden]{display:none!important}</style>`);
           select.after(mount);select.setAttribute('data-vtop-searchable','');
           const picker=globalThis.VtopSearchSelect.create(select,ui,label(select,0),async value=>{
             // A pick here is yours, even though the change it fires isn't a trusted event.
@@ -349,7 +350,7 @@
       if (!bar) {
         bar = document.createElement('span'); bar.className = 'vtop-form-preset-bar col-auto';
         const ui = bar.attachShadow({mode:'open'});
-        ui.innerHTML = `<style>${theme}:host{display:inline-flex;vertical-align:middle;margin:0 0 0 8px}:host([hidden]){display:none!important}:host([data-standalone]){margin:0 0 14px}button{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;font-weight:550;white-space:nowrap;box-shadow:0 1px 3px #00000008}button:hover{background:var(--hover);border-color:var(--accent)}svg{width:14px;height:14px;color:var(--accent);flex-shrink:0}.state{padding:1px 5px;border-radius:4px;background:var(--hover);color:var(--muted);font-size:10px}.state.on{color:var(--accent)}</style><button type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--surface)"/><circle cx="15" cy="17" r="3" fill="var(--surface)"/></svg><span class="label"></span><span class="state" hidden></span></button>`;
+        globalThis.VtopBrand.setMarkup(ui, `<style>${theme}:host{display:inline-flex;vertical-align:middle;margin:0 0 0 8px}:host([hidden]){display:none!important}:host([data-standalone]){margin:0 0 14px}button{display:inline-flex;align-items:center;gap:7px;padding:7px 11px;border:1px solid var(--line);border-radius:8px;background:var(--surface);color:var(--text);font-size:12px;font-weight:550;white-space:nowrap;box-shadow:0 1px 3px #00000008}button:hover{background:var(--hover);border-color:var(--accent)}svg{width:14px;height:14px;color:var(--accent);flex-shrink:0}.state{padding:1px 5px;border-radius:4px;background:var(--hover);color:var(--muted);font-size:10px}.state.on{color:var(--accent)}</style><button type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M4 17h16"/><circle cx="9" cy="7" r="3" fill="var(--surface)"/><circle cx="15" cy="17" r="3" fill="var(--surface)"/></svg><span class="label"></span><span class="state" hidden></span></button>`);
         ui.querySelector('button').addEventListener('click',()=>open(form,ui.querySelector('button')));
         bars.set(form,bar);
       }
@@ -381,7 +382,7 @@
     syncNativePickers();
     syncTheme();
     if(dialog.open && editing && !editing.loading)refreshEditor(editing);
-    if(dialog.open && !visible(editing?.form)) dialog.close();
+    if(dialog.open && (!visible(editing?.form) || !formKey(editing.form))) dialog.close();
     restore();
   }
   document.addEventListener('change',event=>{

@@ -18,7 +18,6 @@ test('toolbar logo opens VTOP when the current tab has no extension listener',as
  const runtime=setup(async()=>{throw new Error('No receiver');});await runtime.click({id:12});
  assert.equal(runtime.opened.length,1);assert.equal(runtime.opened[0].url,'https://vtop.vit.ac.in/vtop/content');
 });
-test('content scripts may use memory-only session storage, re-granted on browser startup and install',()=>{
- const runtime=setup(async()=>{});assert.deepEqual(runtime.access,['TRUSTED_AND_UNTRUSTED_CONTEXTS']);
- assert.deepEqual(runtime.lifecycle.map(([name])=>name),['startup','installed']);runtime.lifecycle[0][1]();assert.equal(runtime.access.length,2);
+test('toolbar startup does not expose privileged session storage to content scripts',()=>{
+ const runtime=setup(async()=>{});assert.deepEqual(runtime.access,[]);assert.deepEqual(runtime.lifecycle,[]);
 });

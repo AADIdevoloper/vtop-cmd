@@ -8,7 +8,7 @@
   const shadow = host.attachShadow({ mode: 'open' });
   const { logo, tokens, font, shortcut } = globalThis.VtopBrand;
   const combobox = globalThis.VtopCombobox;
-  shadow.innerHTML = `
+  globalThis.VtopBrand.setMarkup(shadow, `
     <style>
       :host{all:initial;color-scheme:light;${tokens.light};font:${font};color:var(--text)}
       :host([data-dark]){color-scheme:dark;${tokens.dark}}
@@ -46,7 +46,7 @@
       <div class="meta"><span class="section">ALL PAGES</span><span class="count" role="status" aria-live="polite"></span></div>
       <div class="results" id="results" role="listbox" aria-label="VTOP pages"></div>
       <footer><span><kbd>↑</kbd> <kbd>↓</kbd> navigate</span><span><kbd>↵</kbd> open</span><span class="local">On your device. In your flow.</span></footer>
-    </dialog>`;
+    </dialog>`);
   document.documentElement.append(host);
   const dialog = shadow.querySelector('dialog');
   const input = shadow.querySelector('.search input');
@@ -55,7 +55,27 @@
   let defaultSemester = null, preferencesReady = false, prompted = false, semesterView = false;
   // The default semester is applied once per page visit. A visit starts on load or when a VTOP page is opened from
   // its menu (or this one); later re-renders of the same page, e.g. after you pick another semester, keep your choice.
-  let pageVisit = 0, appliedSemesters = new Map(), staleSemesters = new WeakSet();
+  let pageVisit = 0, appliedSemesters = new Map(), staleSemesters = new WeakSet(), manualSemesterVisit = -1;
+  const automaticSemesterValues = new WeakMap(), userSemesterIntent = new WeakSet();
+  function noteSemesterIntent(event) {
+    const select = event.target?.closest?.('select');
+    if (!select || !semesters.discover(document).includes(select)) return;
+    userSemesterIntent.add(select);
+    setTimeout(() => userSemesterIntent.delete(select), 1500);
+  }
+  document.addEventListener('pointerdown', noteSemesterIntent, true);
+  document.addEventListener('keydown', event => {
+    if (['ArrowDown', 'ArrowUp', 'Home', 'End', ' '].includes(event.key)) noteSemesterIntent(event);
+  }, true);
+  document.addEventListener('change', event => {
+    const select = event.target;
+    if (!semesters.discover(document).includes(select)) return;
+    if (automaticSemesterValues.get(select) === select.value) {
+      automaticSemesterValues.delete(select);
+      return;
+    }
+    if (event.isTrusted || userSemesterIntent.has(select)) manualSemesterVisit = pageVisit;
+  }, true);
   const semesterSlot = select => select.id || select.name || 'semester';
   const pageLinks = 'a.systemB5BtnMenu[data-url],a.systemBtnMenu[data-url],a.quickB5MainMenu[data-url],a[onclick*="home()"]';
   function newPageVisit() {
@@ -121,6 +141,7 @@
     setSemesterPreference(value);
     // Saving here applies the new default to this page right away; other tabs pick it up on their next page.
     appliedSemesters = new Map();
+    manualSemesterVisit = -1;
     document.dispatchEvent(new CustomEvent('vtop-default-semester-saved', { detail: defaultSemester }));
     try { chrome.storage.local.set({ defaultSemester })?.catch(() => {}); } catch { /* Extension reloaded. */ }
     scanSemesters();
@@ -170,13 +191,14 @@
       if (choices.length) rememberSemesters(choices, { fresh: true });
       if (!choices.length || semesters.transactional(select)) continue;
       pageHasSemesters = true;
-      if (!defaultSemester || staleSemesters.has(select) || globalThis.VtopFormPresets?.owns(select)) continue;
+      if (!defaultSemester || staleSemesters.has(select) || manualSemesterVisit === pageVisit || globalThis.VtopFormPresets?.owns(select)) continue;
       if (appliedSemesters.get(semesterSlot(select)) === pageVisit) continue;
       const choice = semesters.match(select, defaultSemester);
       if (!choice) continue;
       // Record before dispatch: VTOP's handler may synchronously replace the dropdown.
       appliedSemesters.set(semesterSlot(select), pageVisit);
       if (select.value === choice.value) continue;
+      automaticSemesterValues.set(select, choice.value);
       if (globalThis.VtopPageActions) globalThis.VtopPageActions.change(select, choice.value);
       else { select.value = choice.value; select.dispatchEvent(new Event('change', { bubbles: true })); }
     }
@@ -202,6 +224,8 @@
   }
   setTheme(false);
   try {
+    // Filter memory was removed; drop what it had saved.
+    chrome.storage.local.remove?.(['pageFilters', 'rememberFilters'])?.catch?.(() => {});
     chrome.storage.local.get(['darkMode', 'defaultSemester', 'knownSemesters']).then(settings => {
       setTheme(settings.darkMode === true); setSemesterPreference(settings.defaultSemester);
       if (Array.isArray(settings.knownSemesters?.list)) {
@@ -238,8 +262,7 @@
         host.dispatchEvent(new CustomEvent('vtop-cgpa-open', { detail: { defaultSemester } }));
       } },
       { id: 'vtop:semester', label: 'Choose default semester', category: defaultSemester?.label || 'Preferences', keywords: 'semester term default automatic', action: showSemesterSettings },
-      { id: 'vtop:theme', label: 'Toggle dark mode', category: 'Appearance', keywords: 'light theme night', action: toggleTheme },
-      ...(globalThis.VtopCommandExtras?.() || [])];
+      { id: 'vtop:theme', label: 'Toggle dark mode', category: 'Appearance', keywords: 'light theme night', action: toggleTheme }];
   }
   function updateSelection() {
     [...list.children].forEach((row, index) => row.setAttribute('aria-selected', String(index === selected)));

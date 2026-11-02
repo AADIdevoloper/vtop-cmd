@@ -4,3 +4,8 @@ node_modules/
 /preview/
 /.gravitas/
 npm-debug.log*
+vtop-cmd.zip
+
+*.xpi
+
+__pycache__/
