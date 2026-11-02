@@ -161,13 +161,13 @@ test('attendance annotations update in place after count changes and AJAX row re
  rows[1].cells[1].textContent='30';await pause();assert.match(rows[1].querySelector('.vtop-row-attendance').shadowRoot.textContent,/Can miss 0/);assert.equal(w.document.querySelectorAll('.vtop-row-attendance').length,2);
  rows[1].outerHTML='<tr><td>C</td><td>28</td><td>40</td><td>70%</td></tr>';await pause();assert.equal(w.document.querySelectorAll('.vtop-row-attendance').length,2);assert.match(rows[1].querySelector('.vtop-row-attendance').shadowRoot.textContent,/Attend 8 more/);dom.window.close();
 });
-test('scope toggles preserve remembered course filters for both default and all-semester views',async()=>{
- const {dom,w}=setup(registeredCourses,{defaultSemester:defaultFall});await pause();
+test('scope toggles never switch to a different remembered course',async()=>{
+ const {dom,w}=setup(registeredCourses,{defaultSemester:defaultFall,pageFilters:{'["Course Page - view","","courseId"]':'W1','["Course Page - view","all","courseId"]':'W1'}});await pause();
  const select=w.document.querySelector('#courseId'),bar=w.document.querySelector('.vtop-course-scope').shadowRoot;
  select.value='F1';select.dispatchEvent(new w.Event('change',{bubbles:true}));
- bar.querySelector('.all').click();await pause();select.value='W1';select.dispatchEvent(new w.Event('change',{bubbles:true}));
+ bar.querySelector('.all').click();await pause();assert.equal(select.value,'F1','All semesters keeps the course you picked');
  bar.querySelector('.default').click();await pause();assert.equal(select.value,'F1');
- bar.querySelector('.all').click();await pause();assert.equal(select.value,'W1');dom.window.close();
+ select.value='F2';select.dispatchEvent(new w.Event('change',{bubbles:true}));w.document.body.append(w.document.createElement('p'));await pause();assert.equal(select.value,'F2');dom.window.close();
 });
 test('semester-prefixed course labels support unnamed course controls and restore grouped options',async()=>{
  const html='<main id="b5-pagewrapper"><h1>Course Page - view</h1><select id="registeredClass"><option value="">Choose class</option><optgroup label="Fall"><option value="F">Fall Semester 2026-27 - SAMPLE101 - Fall course</option></optgroup><optgroup label="Winter"><option value="W">Winter Semester 2026-27 - SAMPLE102 - Winter course</option></optgroup></select></main>';
