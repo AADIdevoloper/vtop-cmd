@@ -3,9 +3,9 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {JSDOM}=require('jsdom');
 const pause=()=>new Promise(resolve=>setTimeout(resolve,35));
-function setup({query='',bytes}={}){
+function setup({query='',bytes,referrer}={}){
  const html=fs.readFileSync(__dirname+'/../pdf-viewer.html','utf8');
- const dom=new JSDOM(html,{runScripts:'outside-only',url:`https://vtop.vit.ac.in/pdf-viewer.html${query}#scroll-test`,pretendToBeVisual:true}),w=dom.window;
+ const dom=new JSDOM(html,{runScripts:'outside-only',url:`https://vtop.vit.ac.in/pdf-viewer.html${query}#scroll-test`,referrer,pretendToBeVisual:true}),w=dom.window;
  w.eval(fs.readFileSync(__dirname+'/../brand.js','utf8'));
  const container=w.document.querySelector('#pages'),paints=[];let observer;
  Object.defineProperty(container,'clientWidth',{value:800});
@@ -42,7 +42,7 @@ test('viewer acknowledges the document and reports when it has loaded',async()=>
  assert.ok(types.includes('viewer-loaded'));assert.equal(w.document.querySelector('#status').textContent,'');dom.window.close();
 });
 test('viewer accepts PDF bytes transferred from another JavaScript realm',async()=>{
- const other=new JSDOM('');const {dom,w}=setup({bytes:new other.window.ArrayBuffer(8)});await pause();
+ const other=new JSDOM('');const {dom,w}=setup({bytes:new other.window.ArrayBuffer(8),referrer:'moz-extension://test-extension/pdf-preview.js'});await pause();
  assert.equal(w.document.querySelector('#total').textContent,'/ 3');assert.equal(w.document.querySelector('#status').textContent,'');other.window.close();dom.window.close();
 });
 test('Cmd/Ctrl+wheel and pinch zoom the document; a plain wheel only scrolls',async()=>{

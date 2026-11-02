@@ -28,7 +28,7 @@
   const dialog=shadow.querySelector('dialog'),status=shadow.querySelector('.status'),download=shadow.querySelector('.download');
   const viewerURL=chrome.runtime.getURL('pdf-viewer.html');
   const parsedViewerURL=new URL(viewerURL);
-  const viewerOrigin=parsedViewerURL.protocol==='chrome-extension:' ? `chrome-extension://${parsedViewerURL.host}` : parsedViewerURL.origin;
+  const viewerOrigin=['chrome-extension:','moz-extension:'].includes(parsedViewerURL.protocol) ? `${parsedViewerURL.protocol}//${parsedViewerURL.host}` : parsedViewerURL.origin;
   let activeId,blobURL,previousFocus,nonce,bytes,filename,frame,received,watchdog,dark=false;
   function setTheme(value){dark=value;host.toggleAttribute('data-dark',dark);}
   try {
@@ -56,7 +56,7 @@
   }
   window.addEventListener('message',async event=>{
     if(frame && event.source===frame.contentWindow){
-      if(event.origin!==viewerOrigin || event.data?.nonce!==nonce)return;
+      if((event.origin!==viewerOrigin && event.origin!=='null') || event.data?.nonce!==nonce)return;
       const type=event.data?.type;
       if(type==='viewer-ready')deliver();
       else if(type==='viewer-received')received=true;

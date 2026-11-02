@@ -1,8 +1,8 @@
 import * as pdfjs from './vendor/pdf.mjs';
 pdfjs.GlobalWorkerOptions.workerSrc=new URL('./vendor/pdf.worker.mjs',import.meta.url).href;
 const $=selector=>document.querySelector(selector),nonce=location.hash.slice(1);
-// ancestorOrigins survives referrer policies that strip document.referrer.
-const parentOrigin=location.ancestorOrigins?.[0]||(document.referrer?new URL(document.referrer).origin:'https://vtop.vit.ac.in');
+// Firefox can report the extension URL as this frame's referrer; this viewer is only embedded on VTOP.
+const parentOrigin='https://vtop.vit.ac.in';
 const container=$('#pages'),states=[],nearby=new Set(),GUTTER=48;
 // Match the command menu's palette and follow its dark-mode setting live.
 if(globalThis.VtopBrand){const style=document.createElement('style');style.textContent=`:root{color-scheme:light;${VtopBrand.tokens.light}}:root[data-dark]{color-scheme:dark;${VtopBrand.tokens.dark}}`;document.head.prepend(style);}

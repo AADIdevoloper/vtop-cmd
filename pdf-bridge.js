@@ -63,8 +63,8 @@
       const response = source ? null : await nativeFetch(url,{credentials:'same-origin',...init});
       if (response && !response.ok) throw new Error('The document could not be loaded. Your VTOP session may have expired.');
       const blob = source || await response.blob();
-      const signature = new Uint8Array(await blob.slice(0,5).arrayBuffer());
-      const isPdf = signature.length === 5 && String.fromCharCode(...signature) === '%PDF-';
+      const header = new Uint8Array(await blob.slice(0,1024).arrayBuffer());
+      const isPdf = String.fromCharCode(...header).includes('%PDF-');
       const name = filename(response?.headers.get('content-disposition'), suggestedName || (isPdf ? 'document.pdf' : 'download'));
       if (!isPdf) {
         if (fallback && /text\/html/i.test(blob.type)) { emit('not-pdf',id); fallback(); return; }

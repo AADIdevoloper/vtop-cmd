@@ -27,6 +27,11 @@ test('VTOP window.open download becomes a PDF preview using original authenticat
  assert.equal(new TextDecoder().decode(ready.bytes),'%PDF-1.4\nmock');assert.equal(ready.blobUrl,undefined);
  assert.ok(!JSON.stringify(messages).includes('token=test'));dom.window.close();
 });
+test('PDF headers within the first 1024 bytes are recognized',async()=>{
+ const prefix='VTOP document preamble '.repeat(3),{dom,w,messages,downloads}=bridge({body:`${prefix}%PDF-1.4\nmock`});
+ w.open('/vtop/download/course.pdf');await pause();
+ assert.ok(messages.some(message=>message.kind==='ready'));assert.equal(downloads.length,0);dom.window.close();
+});
 test('external URLs and ordinary VTOP navigation retain native browser behavior',async()=>{
  const {dom,w,calls,opens}=bridge();w.open('https://example.com/file.pdf');w.open('/vtop/academics/home');
  assert.equal(opens.length,2);assert.equal(calls.length,0);dom.window.close();
@@ -175,9 +180,19 @@ test('preview mounts a fresh viewer frame per document and delivers bytes on loa
  const second=shadow.querySelector('iframe');assert.ok(second&&second!==first);assert.notEqual(second.src,first.src);
  assert.equal(shadow.querySelectorAll('iframe').length,1);dom.window.close();
 });
-function previewWindow({dark=false}={}){
+test('Firefox opaque extension message origin completes the viewer-ready handshake',async()=>{
+ const {dom,w,shadow,send}=previewWindow({extensionProtocol:'moz-extension:'});
+ send('pdf-1-1','loading');send('pdf-1-1','ready',{bytes:samplePdf()});await pause();
+ const frame=shadow.querySelector('iframe'),posted=[];assert.ok(frame);
+ frame.contentWindow.postMessage=(data,origin)=>posted.push({data,origin});
+ const nonce=new URL(frame.src).hash.slice(1);
+ w.dispatchEvent(new w.MessageEvent('message',{source:frame.contentWindow,origin:'null',data:{type:'viewer-ready',nonce}}));
+ assert.equal(posted.length,1);assert.equal(posted[0].data.type,'pdf-data');assert.equal(posted[0].origin,'moz-extension://test-extension');
+ dom.window.close();
+});
+function previewWindow({dark=false,extensionProtocol='chrome-extension:'}={}){
  const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window,listeners=[];
- w.chrome={runtime:{getURL:name=>'chrome-extension://test-extension/'+name},storage:{local:{get:async()=>({darkMode:dark})},onChanged:{addListener:listener=>listeners.push(listener)}}};
+ w.chrome={runtime:{getURL:name=>`${extensionProtocol}//test-extension/${name}`},storage:{local:{get:async()=>({darkMode:dark})},onChanged:{addListener:listener=>listeners.push(listener)}}};
  w.TextDecoder=TextDecoder;w.Blob=Blob;w.fetch=async()=>({arrayBuffer:async()=>new TextEncoder().encode('%PDF-1.4').buffer});
  w.URL.createObjectURL=()=>'blob:https://vtop.vit.ac.in/copy';w.URL.revokeObjectURL=()=>{};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
