@@ -216,6 +216,16 @@ npm run build  # builds Chrome and Firefox folders and their versioned ZIPs
 
 Tests use made-up data shaped like VTOP's real markup. No account data is included. Features have been checked on a signed-in account by browsing only; not every VTOP page has been verified. See [the dark-mode audit](docs/dark-mode-audit.md) for what was checked and its limits.
 
+### CI and releases
+
+- **Every pull request** runs `.github/workflows/ci.yml`. It runs the syntax check, the tests and both builds, and lints the Firefox package with Mozilla's `web-ext lint`. The built ZIPs are attached to the run. `main` requires this check to pass before a pull request can merge.
+- **Releases** come from tags. Bump the version in `manifest.json` and `package.json`, merge that to `main`, then push a matching tag:
+  ```bash
+  git tag v1.2.0 origin/main
+  git push origin v1.2.0
+  ```
+  `.github/workflows/release.yml` checks that the tag matches both versions and is on `main`, rebuilds and tests, then publishes a GitHub release with the Chrome and Firefox ZIPs.
+
 ### Files
 
 | File | Purpose |
