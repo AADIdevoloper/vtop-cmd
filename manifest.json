@@ -26,7 +26,6 @@
         "cgpa-ui.js",
         "deadline-cache-client.js",
         "page-enhancements.js",
-        "enhancements-ui.js",
         "pdf-preview.js",
         "captcha-solver.js",
         "captcha.js"

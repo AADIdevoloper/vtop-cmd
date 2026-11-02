@@ -58,8 +58,8 @@ test('multiple selects and radio groups keep their values; unavailable saved cho
 test('preset semester and course values take precedence over existing automatic preferences',async()=>{
  const markup='<main id="b5-pagewrapper"><h2>Late Hour Request</h2><form id="LateHourRequestForm"><select id="semesterSubId"><option value="fall">Fall Semester 2026-27</option><option value="winter">Winter Semester 2026-27</option></select><select id="courseId"><option value="c1">Course 1</option><option value="c2">Course 2</option></select></form></main>';
  const s=await setup(markup);s.open();const selects=s.ui.querySelectorAll('select');selects[0].value='winter';selects[1].value='c2';s.ui.querySelector('.save').click();await pause();
- const w=s.w;w.chrome.storage.local.get=async()=>({...s.store,defaultSemester:{value:'fall',label:'Fall Semester 2026-27'},pageFilters:{'["query","winter","courseId"]':'c1'}});
- for(const file of ['brand.js','combobox.js','navigation.js','semesters.js','enhancements.js','content.js','enhancements-ui.js'])w.eval(fs.readFileSync(__dirname+'/../'+file,'utf8'));
+ const w=s.w;w.chrome.storage.local.get=async()=>({...s.store,defaultSemester:{value:'fall',label:'Fall Semester 2026-27'}});
+ for(const file of ['brand.js','combobox.js','navigation.js','semesters.js','enhancements.js','content.js'])w.eval(fs.readFileSync(__dirname+'/../'+file,'utf8'));
  await pause();assert.equal(w.document.querySelector('#semesterSubId').value,'winter');assert.equal(w.document.querySelector('#courseId').value,'c2');s.dom.window.close();
 });
 
