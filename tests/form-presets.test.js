@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const {JSDOM} = require('jsdom');
 const source = fs.readFileSync(__dirname + '/../form-presets.js','utf8');
-const html = `<main id="b5-pagewrapper"><h2>Sample request</h2><form id="request"><label>Purpose<textarea name="purpose"></textarea></label><label>Category<select name="category"><option value="">Choose</option><option value="study">Study</option></select></label><label><input type="checkbox" name="notify">Notify me</label><input type="hidden" name="csrf" value="secret"><input name="captcha"><input type="file" name="attachment"><button type="submit">Submit</button></form></main>`;
+const html = `<main id="b5-pagewrapper"><h2>Late Hour Request</h2><form id="LateHourRequestForm"><label>Purpose<textarea name="purpose"></textarea></label><label>Category<select name="category"><option value="">Choose</option><option value="study">Study</option></select></label><label><input type="checkbox" name="notify">Notify me</label><input type="hidden" name="csrf" value="secret"><input name="captcha"><input type="file" name="attachment"><button type="submit">Submit</button></form></main>`;
 const pause = () => new Promise(resolve=>setTimeout(resolve,220));
 async function setup(markup=html, saved={}) {
  const dom = new JSDOM(markup,{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}), w=dom.window;
@@ -34,10 +34,10 @@ test('a click on the editor backdrop closes it without saving',async()=>{
  s.ui.querySelector('textarea').value='Not saved';dialog.dispatchEvent(new s.w.MouseEvent('click',{bubbles:true,clientX:300,clientY:300}));assert.equal(dialog.open,true);
  dialog.dispatchEvent(new s.w.MouseEvent('click',{bubbles:true,clientX:700,clientY:300}));assert.equal(dialog.open,false);assert.equal(s.store.formPresets,undefined);s.dom.window.close();
 });
-test('page and form identities isolate presets, including newly discovered forms',async()=>{
+test('preset identity stays scoped to Late Hour Request and excludes other forms',async()=>{
  const s=await setup();s.open();s.ui.querySelector('textarea').value='Only on this page';s.ui.querySelector('.save').click();await pause();
  s.w.document.querySelector('h2').textContent='Different request';s.w.document.querySelector('textarea').value='';await pause();assert.equal(s.w.document.querySelector('textarea').value,'');
- s.w.document.querySelector('main').insertAdjacentHTML('beforeend','<form id="other"><label>Notes<input name="notes"></label></form>');await pause();assert.equal(s.w.document.querySelectorAll('.vtop-form-preset-bar').length,2);s.dom.window.close();
+ s.w.document.querySelector('main').insertAdjacentHTML('beforeend','<form id="other"><label>Notes<input name="notes"></label></form>');await pause();assert.equal(s.w.document.querySelectorAll('.vtop-form-preset-bar').length,1);s.dom.window.close();
 });
 test('missing dependent options retry when options arrive, while unchanged options preserve manual edits',async()=>{
  const s=await setup();s.open();s.ui.querySelector('select').value='study';s.ui.querySelector('.save').click();await pause();
@@ -51,12 +51,12 @@ test('login forms are excluded; delete removes persisted preset; storage errors 
  s.open();s.fail();s.ui.querySelector('.save').click();await pause();assert.equal(s.ui.querySelector('dialog').open,true);assert.match(s.ui.querySelector('.status').textContent,/Could not save/);s.dom.window.close();
 });
 test('multiple selects and radio groups keep their values; unavailable saved choices remain editable',async()=>{
- const markup='<main id="b5-pagewrapper"><h2>Options</h2><form id="options"><label><input type="radio" name="mode" value="a" checked>A</label><label><input type="radio" name="mode" value="b">B</label><label>Days<select name="days" multiple><option value="mon">Monday</option><option value="tue">Tuesday</option></select></label></form></main>';
+ const markup='<main id="b5-pagewrapper"><h2>Late Hour Request</h2><form id="LateHourRequestForm"><label><input type="radio" name="mode" value="a" checked>A</label><label><input type="radio" name="mode" value="b">B</label><label>Days<select name="days" multiple><option value="mon">Monday</option><option value="tue">Tuesday</option></select></label></form></main>';
  const s=await setup(markup);s.open();const radios=s.ui.querySelectorAll('[type=radio]');radios[1].click();s.ui.querySelector('select').options[1].selected=true;s.ui.querySelector('.save').click();await pause();assert.equal(s.w.document.querySelector('[value=a]').checked,false);assert.equal(s.w.document.querySelector('[value=b]').checked,true);assert.equal(s.w.document.querySelector('select').value,'tue');
  s.w.document.querySelector('select').querySelector('[value=tue]').remove();await pause();s.open();assert.equal(s.ui.querySelector('select').value,'tue');s.ui.querySelector('.save').click();await pause();s.w.document.querySelector('select').insertAdjacentHTML('beforeend','<option value="tue">Tuesday</option>');await pause();assert.equal(s.w.document.querySelector('select').value,'tue');s.dom.window.close();
 });
 test('preset semester and course values take precedence over existing automatic preferences',async()=>{
- const markup='<main id="b5-pagewrapper"><h2>Time Table</h2><form id="query"><select id="semesterSubId"><option value="fall">Fall Semester 2026-27</option><option value="winter">Winter Semester 2026-27</option></select><select id="courseId"><option value="c1">Course 1</option><option value="c2">Course 2</option></select></form></main>';
+ const markup='<main id="b5-pagewrapper"><h2>Late Hour Request</h2><form id="LateHourRequestForm"><select id="semesterSubId"><option value="fall">Fall Semester 2026-27</option><option value="winter">Winter Semester 2026-27</option></select><select id="courseId"><option value="c1">Course 1</option><option value="c2">Course 2</option></select></form></main>';
  const s=await setup(markup);s.open();const selects=s.ui.querySelectorAll('select');selects[0].value='winter';selects[1].value='c2';s.ui.querySelector('.save').click();await pause();
  const w=s.w;w.chrome.storage.local.get=async()=>({...s.store,defaultSemester:{value:'fall',label:'Fall Semester 2026-27'},pageFilters:{'["query","winter","courseId"]':'c1'}});
  for(const file of ['brand.js','combobox.js','navigation.js','semesters.js','enhancements.js','content.js','enhancements-ui.js'])w.eval(fs.readFileSync(__dirname+'/../'+file,'utf8'));
@@ -67,14 +67,14 @@ test('modern content wrapper takes priority over an empty legacy wrapper earlier
  const s=await setup('<div id="page-wrapper"></div>'+html);assert.equal(s.w.document.querySelectorAll('.vtop-form-preset-bar').length,1);s.open();assert.equal(s.ui.querySelectorAll('.fields textarea').length,1);s.dom.window.close();
 });
 test('launcher sits beside primary page actions and tracks CSS and ancestor visibility',async()=>{
- const markup='<main id="b5-pagewrapper"><h2>Leave</h2><form class="row" id="actions"><div class="col-auto"><button type="button" data-effectdivision="DataBlock">Leave Request</button></div><div class="col-auto"><button type="button" data-effectdivision="DataBlock">History</button></div></form><div id="DataBlock"><div id="panel"><form id="leave"><label>Reason<textarea name="reason"></textarea></label><button type="submit">Submit</button></form></div></div></main>';
+ const markup='<main id="b5-pagewrapper"><h2>Late Hour Request</h2><form class="row" id="actions"><div class="col-auto"><button type="button" data-effectdivision="DataBlock">Leave Request</button></div><div class="col-auto"><button type="button" data-effectdivision="DataBlock">History</button></div></form><div id="DataBlock"><div id="panel"><form id="LateHourRequestForm"><label>Reason<textarea name="reason"></textarea></label><button type="submit">Submit</button></form></div></div></main>';
  const s=await setup(markup), d=s.w.document, bar=d.querySelector('.vtop-form-preset-bar');
  assert.equal(bar.parentElement.id,'actions');assert.equal(bar.previousElementSibling.textContent,'History');assert.equal(bar.hidden,false);
  d.querySelector('#panel').style.display='none';await pause();assert.equal(bar.hidden,true);
  d.querySelector('#panel').style.display='';await pause();assert.equal(bar.hidden,false);
  s.open();assert.equal(s.ui.querySelector('dialog').open,true);d.querySelector('#DataBlock').setAttribute('aria-hidden','true');await pause();assert.equal(bar.hidden,true);assert.equal(s.ui.querySelector('dialog').open,false);
  d.querySelector('#DataBlock').removeAttribute('aria-hidden');await pause();assert.equal(bar.hidden,false);
- d.querySelector('#leave').remove();await pause();assert.equal(bar.isConnected,false);s.dom.window.close();
+ d.querySelector('#LateHourRequestForm').remove();await pause();assert.equal(bar.isConnected,false);s.dom.window.close();
 });
 test('preset UI tracks Cmd+K theme in both directions, including newly inserted launchers',async()=>{
  const s=await setup(),d=s.w.document,host=d.querySelector('#vtop-form-presets');
@@ -82,8 +82,8 @@ test('preset UI tracks Cmd+K theme in both directions, including newly inserted 
  d.querySelector('main').insertAdjacentHTML('beforeend','<form id="second"><input name="text"></form>');await pause();assert.equal([...d.querySelectorAll('.vtop-form-preset-bar')].every(bar=>bar.hasAttribute('data-dark')),true);
  d.documentElement.removeAttribute('data-vtop-command-dark');await pause();assert.equal(host.hasAttribute('data-dark'),false);assert.equal([...d.querySelectorAll('.vtop-form-preset-bar')].some(bar=>bar.hasAttribute('data-dark')),false);s.dom.window.close();
 });
-test('multiple form launchers sharing a toolbar settle without repeated DOM mutations',async()=>{
- const markup='<main id="b5-pagewrapper"><h2>Requests</h2><div><button data-effectdivision="DataBlock">Request</button></div><div id="DataBlock"><form id="one"><input name="a"></form><form id="two"><input name="b"></form></div></main>';
+test('late-hour launcher sharing a toolbar with unrelated forms settles without repeated DOM mutations',async()=>{
+ const markup='<main id="b5-pagewrapper"><h2>Requests</h2><div><button data-effectdivision="DataBlock">Request</button></div><div id="DataBlock"><form id="LateHourRequestForm"><input name="a"></form><form id="two"><input name="b"></form></div></main>';
  const s=await setup(markup);let mutations=0;const observer=new s.w.MutationObserver(records=>{mutations+=records.length;});observer.observe(s.w.document.body,{subtree:true,childList:true,attributes:true});await pause();await pause();assert.equal(mutations,0);observer.disconnect();s.dom.window.close();
 });
 const linked=`<main id="b5-pagewrapper"><h2>Late Hour Permission</h2><form id="LateHourRequestForm"><label>School<select id="costCentreId" name="costCentreId" data-isprimarycontrol="true" data-effectdivision="FacultyBlock"><option value="">Select</option><option value="a">School A</option><option value="b">School B</option></select></label><div id="FacultyBlock"><label>Faculty<select id="appliedTo" name="appliedTo"><option value="">Select</option></select></label></div><label>Venue Type<select id="roomTypeId" name="roomTypeId" data-isprimarycontrol="true" data-effectdivision="AcademicBlock"><option value="">Select</option><option value="lab">Laboratory</option></select></label><div id="AcademicBlock"><label>Block<select disabled id="buildingId" name="buildingId" data-isprimarycontrol="true" data-effectdivision="AcademicBlock"><option value="">Select</option></select></label><label>Venue<select disabled id="venue" name="venue"><option value="">Select</option></select></label></div><label>Work<select id="lateHourEventId" name="lateHourEventId" data-effectdivision="DateBlock"><option value="">Select</option><option value="project">Project</option></select></label><div id="DateBlock"><label>From<input type="date" id="lateHourFromDate" name="lateHourFromDate"></label><label>From time<select id="fromTime" name="fromTime"><option value="">Select</option></select></label><label>To<input type="date" id="lateHourToDate" name="lateHourToDate"></label><label>To time<select id="toTime" name="toTime"><option value="">Select</option></select></label></div><textarea name="details"></textarea><button type="submit">Submit Request</button></form></main>`;
@@ -123,7 +123,7 @@ test('resetting a lookup parent empties its dependents without asking VTOP',asyn
  assert.ok(!Object.keys(values).some(key=>/costCentreId|appliedTo/.test(key)));s.dom.window.close();
 });
 test('a redraw that keeps your different choice is not overwritten by the preset; a blank redraw is filled again',async()=>{
- const markup='<main id="b5-pagewrapper"><h2>Digital Assignment</h2><form id="da"><div id="block"><select id="semesterSubId" name="semesterSubId"><option value="">Choose</option><option value="fall">Fall</option><option value="winter">Winter</option></select></div></form></main>';
+ const markup='<main id="b5-pagewrapper"><h2>Late Hour Request</h2><form id="LateHourRequestForm"><div id="block"><select id="semesterSubId" name="semesterSubId"><option value="">Choose</option><option value="fall">Fall</option><option value="winter">Winter</option></select></div></form></main>';
  const s=await setup(markup);s.open();choose(s,'semesterSubId','fall');s.ui.querySelector('.save').click();await pause();
  const d=s.w.document;assert.equal(d.querySelector('#semesterSubId').value,'fall');
  // You pick Winter; VTOP redraws the block with Winter still selected.
@@ -138,4 +138,17 @@ test('unrelated page changes do not rebuild the editor\'s dropdown lists',async(
  const first=copy(s,'Faculty').options[1];assert.ok(first);
  s.w.document.querySelector('main').append(s.w.document.createElement('span'));s.w.document.querySelector('main').className='busy';await pause();await pause();
  assert.equal(copy(s,'Faculty').options[1],first,'same option node: the list was not rebuilt');s.dom.window.close();
+});
+
+test('other pages ignore legacy saved presets and never own their controls',async()=>{
+ for(const id of ['LeaveRequestForm','query','DigitalAssignmentForm']){
+  const markup=`<main id="b5-pagewrapper"><h2>Other page</h2><form id="${id}"><input name="purpose"></form></main>`;
+  const key=JSON.stringify(['/vtop/content','Other page',id,'']);
+  const values={[JSON.stringify(['INPUT','text','purpose'])]:'Previously saved'};
+  const s=await setup(markup,{formPresets:{[key]:{enabled:true,values}}});
+  const input=s.w.document.querySelector('input');
+  assert.equal(s.w.document.querySelector('.vtop-form-preset-bar'),null);
+  assert.equal(input.value,'');assert.equal(s.w.VtopFormPresets.owns(input),false);
+  s.dom.window.close();
+ }
 });

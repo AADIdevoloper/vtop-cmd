@@ -30,7 +30,7 @@
   }
   function formKey(form) {
     const container = root();
-    if (!container?.contains(form) || form.querySelector('input[type=password]')) return null;
+    if (form.id !== 'LateHourRequestForm' || !container?.contains(form) || form.querySelector('input[type=password]')) return null;
     const heading = clean(container.querySelector('h1,h2,h3,h4,h5,h6,.card-header,.panel-title')?.textContent);
     const identity = form.id || form.getAttribute('name') || String([...container.querySelectorAll('form')].indexOf(form));
     return JSON.stringify([location.pathname, heading, identity, (form.getAttribute('action') || '').split('?')[0]]);
@@ -134,7 +134,8 @@
   const dialog = shadow.querySelector('dialog'), $ = s => shadow.querySelector(s);
   let editing, previousFocus;
   function open(form, button) {
-    const key = formKey(form), list = fields(form), preset = saved[key];
+    const key = formKey(form); if (!key) return;
+    const list = fields(form), preset = saved[key];
     previousFocus = button;
     editing = {key, form, controls:[], queue:[], loading:false, cancelled:false};
     $('.body').scrollTop = 0;
@@ -381,7 +382,7 @@
     syncNativePickers();
     syncTheme();
     if(dialog.open && editing && !editing.loading)refreshEditor(editing);
-    if(dialog.open && !visible(editing?.form)) dialog.close();
+    if(dialog.open && (!visible(editing?.form) || !formKey(editing.form))) dialog.close();
     restore();
   }
   document.addEventListener('change',event=>{

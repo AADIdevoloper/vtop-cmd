@@ -106,9 +106,9 @@ Open the menu and choose **CGPA calculator**.
 
 Nothing in the calculator changes your academic record.
 
-### Form presets
+### Late Hour Request preset
 
-Forms you fill in often, such as Late Hour Request and Leave Request, can remember your usual answers.
+Late Hour Request can remember your usual answers. Preset creation and automatic filling are available only on this form.
 
 1. Click **Create preset** beside the form.
 2. Fill in the copy of the form that opens, and leave **Automatically fill this form** on.
