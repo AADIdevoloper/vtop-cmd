@@ -44,7 +44,7 @@ html[data-vtop-command-dark] .text-warning { color:#ffe0a2 !important; }
 html[data-vtop-command-dark] .accordion-button::after { filter:brightness(0) invert(1); }
 html[data-vtop-command-dark] :is(.datepicker,.datepicker-dropdown,.bootstrap-datetimepicker-widget,.select2-results,.select2-search,.select2-search__field) { background-color:#182130 !important; color:#e0e6f0 !important; border-color:#465571 !important; }
 /* Applied only when measured text contrast is insufficient. Native colors return in light mode. */
-html[data-vtop-readability-scan] *,html[data-vtop-readability-scan] *::before,html[data-vtop-readability-scan] *::after { transition:none !important; }
+[data-vtop-readability-hold],[data-vtop-readability-hold]::before,[data-vtop-readability-hold]::after { transition:none !important; }
 html[data-vtop-command-dark] [data-vtop-dark-surface] { background-color:#182130 !important; }
 html[data-vtop-command-dark] [data-vtop-readable="text"] { color:#edf2fc !important; }
 html[data-vtop-command-dark] [data-vtop-readable="ink"] { color:#10151f !important; }

@@ -124,7 +124,10 @@ test('opening a course dashboard stops background deadline requests',async()=>{
  const {dom,w}=setup(courseList(['A1','B2','C3']),{},(url,init)=>new Promise((resolve,reject)=>{calls.push(init.body.get('classId'));init.signal.addEventListener('abort',()=>{const error=new Error('aborted');error.name='AbortError';reject(error);});}));
  await pause();assert.deepEqual(calls,['A1']);
  w.document.querySelector('[onclick*="myFunction"]').dispatchEvent(new w.MouseEvent('click',{bubbles:true}));await pause();
- assert.deepEqual(calls,['A1']);dom.window.close();
+ assert.deepEqual(calls,['A1']);
+ // Rows that were still waiting say so, instead of showing Loading… forever.
+ const states=[...w.document.querySelectorAll('.vtop-course-deadlines')].map(host=>host.shadowRoot.querySelector('ul').textContent.trim());
+ assert.deepEqual(states,['Open to see','Open to see','Open to see']);dom.window.close();
 });
 test('course dashboard shows a countdown under each pending due date only',async()=>{
  const {dom,w}=setup(`<main id="b5-pagewrapper">${dashboardHTML([['Case Study - I','24-Oct-2099',''],['Lab record','01-Jan-2020','21 Oct 2026 10:18 PM']])}</main>`);await pause();
@@ -161,13 +164,13 @@ test('attendance annotations update in place after count changes and AJAX row re
  rows[1].cells[1].textContent='30';await pause();assert.match(rows[1].querySelector('.vtop-row-attendance').shadowRoot.textContent,/Can miss 0/);assert.equal(w.document.querySelectorAll('.vtop-row-attendance').length,2);
  rows[1].outerHTML='<tr><td>C</td><td>28</td><td>40</td><td>70%</td></tr>';await pause();assert.equal(w.document.querySelectorAll('.vtop-row-attendance').length,2);assert.match(rows[1].querySelector('.vtop-row-attendance').shadowRoot.textContent,/Attend 8 more/);dom.window.close();
 });
-test('scope toggles preserve remembered course filters for both default and all-semester views',async()=>{
- const {dom,w}=setup(registeredCourses,{defaultSemester:defaultFall});await pause();
+test('scope toggles never switch to a different remembered course',async()=>{
+ const {dom,w}=setup(registeredCourses,{defaultSemester:defaultFall,pageFilters:{'["Course Page - view","","courseId"]':'W1','["Course Page - view","all","courseId"]':'W1'}});await pause();
  const select=w.document.querySelector('#courseId'),bar=w.document.querySelector('.vtop-course-scope').shadowRoot;
  select.value='F1';select.dispatchEvent(new w.Event('change',{bubbles:true}));
- bar.querySelector('.all').click();await pause();select.value='W1';select.dispatchEvent(new w.Event('change',{bubbles:true}));
+ bar.querySelector('.all').click();await pause();assert.equal(select.value,'F1','All semesters keeps the course you picked');
  bar.querySelector('.default').click();await pause();assert.equal(select.value,'F1');
- bar.querySelector('.all').click();await pause();assert.equal(select.value,'W1');dom.window.close();
+ select.value='F2';select.dispatchEvent(new w.Event('change',{bubbles:true}));w.document.body.append(w.document.createElement('p'));await pause();assert.equal(select.value,'F2');dom.window.close();
 });
 test('semester-prefixed course labels support unnamed course controls and restore grouped options',async()=>{
  const html='<main id="b5-pagewrapper"><h1>Course Page - view</h1><select id="registeredClass"><option value="">Choose class</option><optgroup label="Fall"><option value="F">Fall Semester 2026-27 - SAMPLE101 - Fall course</option></optgroup><optgroup label="Winter"><option value="W">Winter Semester 2026-27 - SAMPLE102 - Winter course</option></optgroup></select></main>';
@@ -246,4 +249,12 @@ test('each marks table gets a Total row, with marks lost in its Remark cell',asy
  let changes=0;const watch=new w.MutationObserver(r=>{changes+=r.length;});watch.observe(plain,{subtree:true,childList:true,characterData:true});w.document.body.append(w.document.createElement('p'));await pause();await pause();watch.disconnect();assert.equal(changes,0);
  // The outer course table has no Mark Title column and is left alone.
  assert.equal(w.document.querySelector('.customTable').querySelectorAll(':scope > tbody > .vtop-mark-total').length,0);dom.window.close();
+});
+test('All semesters on Course Page survives a re-render in the same visit and resets on a new page',async()=>{
+ const {dom,w}=setup(registeredCourses,{defaultSemester:defaultFall});await pause();
+ w.document.querySelector('.vtop-course-scope').shadowRoot.querySelector('.all').click();
+ const fresh=()=>{const html=registeredCourses.match(/<select id="courseId">[\s\S]*?<\/select>/)[0];const box=w.document.createElement('div');box.innerHTML=html;w.document.querySelector('#courseId').replaceWith(box.firstChild);};
+ fresh();await pause();assert.deepEqual([...w.document.querySelector('#courseId').options].map(o=>o.value),['','W1','F1','OLD','F2'],'still all semesters after VTOP re-renders');
+ const link=w.document.createElement('a');link.className='systemB5BtnMenu';link.dataset.url='academics/common/CoursePageConsolidated';link.href='#';link.addEventListener('click',e=>e.preventDefault());w.document.body.append(link);link.click();
+ fresh();await pause();assert.deepEqual([...w.document.querySelector('#courseId').options].map(o=>o.value),['','F1','F2'],'a new visit starts filtered to the default');dom.window.close();
 });

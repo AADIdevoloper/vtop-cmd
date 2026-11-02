@@ -71,22 +71,27 @@ test('dark-mode repair follows nested AJAX content and restores native colors in
   assert.equal(detail.firstChild.style.color,'red');
   dom.window.close();
 });
-test('buttons fading between colours keep their fix instead of flickering on every transitionend', async () => {
+test('a fixed button mid-transition keeps its fix on later scans instead of flickering', async () => {
   const dom = new JSDOM('<html data-vtop-command-dark><body style="background-color:rgb(24,33,48)"><main id="b5-pagewrapper"><button id="download" class="btn">Download</button></main></body></html>',{runScripts:'outside-only'});
-  const w = dom.window, html = w.document.documentElement;
+  const w = dom.window;
   w.HTMLElement.prototype.getClientRects = function(){return [{width:100,height:20}];};
+  w.requestIdleCallback = callback => setTimeout(callback,0);
   const native = w.getComputedStyle.bind(w);
-  // Outside a scan the button is mid-transition and its animated colour looks readable; its real colour is dark.
+  // Once fixed, the button fades whenever its fix is removed: unless held, it reads a half-faded, readable colour.
   w.getComputedStyle = element => {
     const css = native(element);
     if (element.id !== 'download') return css;
-    return new Proxy(css,{get:(target,key)=>key==='color'?(html.hasAttribute('data-vtop-readability-scan')?'rgb(30, 30, 30)':'rgb(200, 200, 200)'):Reflect.get(target,key)});
+    const fading = element.fixedOnce && !element.hasAttribute('data-vtop-readability-hold');
+    return new Proxy(css,{get:(target,key)=>key==='color'?(fading?'rgb(200, 200, 200)':'rgb(30, 30, 30)'):Reflect.get(target,key)});
   };
   w.eval(fs.readFileSync(__dirname+'/../dark-readability.js','utf8'));
-  await pause();
+  await pause(); await pause();
   const button = w.document.querySelector('#download');
-  assert.ok(button.hasAttribute('data-vtop-readable'));
-  for (let i = 0; i < 3; i++) { w.document.dispatchEvent(new w.Event('transitionend')); await pause(); assert.ok(button.hasAttribute('data-vtop-readable'),`stable after transition ${i+1}`); }
-  assert.equal(html.hasAttribute('data-vtop-readability-scan'),false);
+  assert.ok(button.hasAttribute('data-vtop-readable')); button.fixedOnce = true;
+  for (let i = 0; i < 3; i++) { w.document.querySelector('main').append(w.document.createElement('span')); await pause(); await pause(); assert.ok(button.hasAttribute('data-vtop-readable'),`stable after scan ${i+1}`); }
+  assert.equal(w.document.querySelectorAll('[data-vtop-readability-hold]').length,0,'hold is released after each scan');
+  // Light mode drops fixes without measuring.
+  w.document.documentElement.removeAttribute('data-vtop-command-dark'); await pause(); await pause();
+  assert.equal(button.hasAttribute('data-vtop-readable'),false);
   dom.window.close();
 });
