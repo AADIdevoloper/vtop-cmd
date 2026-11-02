@@ -10,7 +10,7 @@ function setup({ signedIn = true, savedDark = false, savedSemester, savedKnown, 
   w.HTMLDialogElement.prototype.showModal = function () { this.open = true; };
   w.HTMLDialogElement.prototype.close = function () { this.open = false; this.dispatchEvent(new w.Event('close')); };
   const writes = [];
-  w.chrome = { storage: { local: { get: async () => ({ darkMode: savedDark, defaultSemester: savedSemester, knownSemesters: savedKnown }), set: async value => writes.push(value) }, onChanged: { addListener() {} } } };
+  w.chrome = { storage: { local: { get: async () => ({ darkMode: savedDark, defaultSemester: savedSemester, knownSemesters: savedKnown }), set: async value => writes.push(value) }, onChanged: { addListener(listener) { (w.storageListeners ||= []).push(listener); } } } };
   if (fetch) w.fetch = fetch;
   if (platform) Object.defineProperty(w.navigator, 'platform', { value: platform, configurable: true });
   w.eval(fs.readFileSync(__dirname + '/../brand.js', 'utf8'));
@@ -264,4 +264,16 @@ test('automatic semester selection never touches registration, application or pa
   }
   const ok=setup({html:`<main id="b5-pagewrapper"><h3>Time Table</h3>${semesterHTML}</main>`,savedSemester});await flush();
   assert.equal(ok.w.document.querySelector('select').value,savedSemester.value);ok.dom.window.close();
+});
+
+test('a default semester saved in another tab leaves this tab\'s dropdown alone until the next page', async () => {
+  const {dom,w}=setup({html:semesterHTML,savedSemester}); await flush();
+  const select=w.document.querySelector('select'); assert.equal(select.value,savedSemester.value);
+  select.value='VL20252605'; select.dispatchEvent(new w.Event('change',{bubbles:true}));
+  let changes=0; select.addEventListener('change',()=>changes++);
+  for (const listener of w.storageListeners) listener({defaultSemester:{newValue:{value:'VL20252605',label:'Winter Semester 2025-26'}}},'local');
+  for (const listener of w.storageListeners) listener({defaultSemester:{newValue:savedSemester}},'local');
+  w.document.body.append(w.document.createElement('p')); await pause();
+  assert.equal(select.value,'VL20252605'); assert.equal(changes,0);
+  dom.window.close();
 });

@@ -112,7 +112,6 @@
   }
   function setSemesterPreference(value) {
     defaultSemester = value?.value && value?.label ? { value: String(value.value), label: String(value.label) } : null;
-    appliedSemesters = new Map();
     shadow.querySelector('.semester-button').textContent = defaultSemester?.label || 'Semester';
     shadow.querySelector('.semester-button').title = defaultSemester ? `Default: ${defaultSemester.label}` : 'Choose default semester';
     shadow.querySelector('.semester-chip').textContent = defaultSemester?.label.replace(/\s+Semester/i, '') || 'Set semester';
@@ -120,6 +119,9 @@
   }
   function saveSemesterPreference(value) {
     setSemesterPreference(value);
+    // Saving here applies the new default to this page right away; other tabs pick it up on their next page.
+    appliedSemesters = new Map();
+    document.dispatchEvent(new CustomEvent('vtop-default-semester-saved', { detail: defaultSemester }));
     try { chrome.storage.local.set({ defaultSemester })?.catch(() => {}); } catch { /* Extension reloaded. */ }
     scanSemesters();
   }
@@ -216,7 +218,7 @@
         semestersUpdated = Math.max(semestersUpdated, Number(changes.knownSemesters.newValue.updated) || 0);
         if (semesterView && dialog.open) renderSemesterPicker();
       }
-      if (area === 'local' && changes.defaultSemester) { setSemesterPreference(changes.defaultSemester.newValue); scanSemesters(); }
+      if (area === 'local' && changes.defaultSemester) setSemesterPreference(changes.defaultSemester.newValue);
     });
   } catch { preferencesReady = true; setTimeout(scanSemesters, 0); }
 

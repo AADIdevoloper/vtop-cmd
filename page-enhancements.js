@@ -308,7 +308,9 @@
   function scan(){scanCourses();scanAttendance();scanDeadlines();scanMarks();}
   try {
     chrome.storage.local.get('defaultSemester').then(settings=>{preference=settings.defaultSemester;ready=true;scan();}).catch(()=>{ready=true;scan();});
-    chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.defaultSemester){preference=changes.defaultSemester.newValue;scanCourses();}});
+    // A default saved in another tab applies from the next page; only a save in this tab re-filters what's on screen.
+    chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.defaultSemester)preference=changes.defaultSemester.newValue;});
+    document.addEventListener('vtop-default-semester-saved',event=>{preference=event.detail;scanCourses();});
   } catch {ready=true;}
   scanAttendance();scanDeadlines();
   let pending;
