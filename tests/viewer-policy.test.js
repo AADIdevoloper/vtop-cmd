@@ -10,7 +10,8 @@ test('extension documents prohibit remote network, executable code, and embedded
  assert.deepEqual(rules['script-src'],["'self'"]);
  assert.deepEqual(rules['object-src'],["'none'"]);
  assert.deepEqual(rules['base-uri'],["'none'"]);
- assert.equal(manifest.host_permissions,undefined);
+ assert.deepEqual(manifest.host_permissions,['https://vtop.vit.ac.in/*']);
+ assert.equal(manifest.optional_host_permissions,undefined);
 });
 test('PowerPoint rendering blocks external media and retains lazy windowed rendering and ZIP limits',async()=>{
  const source=fs.readFileSync(root+'pptx-viewer.mjs','utf8').replace(/^import[^\n]+\n/,'').replace('export async function','async function');
