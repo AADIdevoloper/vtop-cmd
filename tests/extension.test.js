@@ -310,3 +310,13 @@ test('a default semester saved in another tab leaves this tab\'s dropdown alone 
   assert.equal(select.value,'VL20252605'); assert.equal(changes,0);
   dom.window.close();
 });
+
+test('night slip aliases find Late Hour Request and activate its native menu handler',()=>{
+ const html=fixture.replace('</body>','<a class="systemB5BtnMenu" data-url="hostels/lateHourRequest">Late Hour Request</a></body>');
+ const {dom,w,shadow,key,query}=setup({html});let clicks=0;
+ w.document.querySelector('[data-url="hostels/lateHourRequest"]').addEventListener('click',e=>{e.preventDefault();clicks++;});
+ const commands=discover(w.document);
+ for(const term of ['night slip','nightslip','Night Slip','late hour'])assert.equal(search(commands,term)[0]?.label,'Late Hour Request');
+ key('k',{ctrlKey:true});query('night slip');assert.match(shadow.querySelector('[role=option]').textContent,/Late Hour Request/);
+ key('Enter',{},shadow.querySelector('.search input'));assert.equal(clicks,1);dom.window.close();
+});

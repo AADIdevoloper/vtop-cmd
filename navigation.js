@@ -6,6 +6,7 @@
   const aliases = [
     [/time table/i, 'timetable schedule tt'],
     [/attendance/i, 'attendance att'],
+    [/late\s*hour/i, 'night slip nightslip late hour request permission'],
     [/digital assignment/i, 'da assignments upload'],
     [/grade history/i, 'cgpa gpa results history'],
     [/marks|grades/i, 'results exams scores'],
