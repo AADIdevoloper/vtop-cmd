@@ -133,3 +133,9 @@ test('a redraw that keeps your different choice is not overwritten by the preset
  d.querySelector('#block').innerHTML='<select id="semesterSubId" name="semesterSubId"><option value="">Choose</option><option value="fall">Fall</option><option value="winter">Winter</option></select>';await pause();await pause();
  assert.equal(d.querySelector('#semesterSubId').value,'fall');s.dom.window.close();
 });
+test('unrelated page changes do not rebuild the editor\'s dropdown lists',async()=>{
+ const s=await setup(linked);linkedActions(s);s.open();choose(s,'School','a');await pause();
+ const first=copy(s,'Faculty').options[1];assert.ok(first);
+ s.w.document.querySelector('main').append(s.w.document.createElement('span'));s.w.document.querySelector('main').className='busy';await pause();await pause();
+ assert.equal(copy(s,'Faculty').options[1],first,'same option node: the list was not rebuilt');s.dom.window.close();
+});

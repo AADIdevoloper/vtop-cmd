@@ -238,7 +238,7 @@
   function resetChildren(session,source) {
     for(const control of dependents(session,source)) {
       const field=sourceFor(session,control);
-      control.pendingDesired=false;control.cleared=true;showState(control);
+      control.pendingDesired=false;control.cleared=true;control.refreshed=null;showState(control);
       control.desired=field.tagName==='SELECT' ? field.options[0]?.value || '' : '';
       if(control.copy.tagName==='SELECT')control.copy.replaceChildren(new Option('Loading choices…',''));
       control.copy.disabled=true;control.picker?.sync(true);
@@ -254,6 +254,10 @@
       copy.disabled=source.disabled;
       for(const attr of ['min','max','step']) {if(source.hasAttribute(attr))copy.setAttribute(attr,source.getAttribute(attr));else copy.removeAttribute(attr);}
       if(copy.tagName==='SELECT') {
+        // Page changes elsewhere also trigger this; rebuilding an unchanged list would make an open dropdown jump.
+        const signature=JSON.stringify([source.disabled,[...source.options].map(option=>[option.value,option.text,option.disabled||option.parentElement?.disabled]),control.desired,control.pendingDesired]);
+        if(control.refreshed===signature)continue;
+        control.refreshed=signature;
         copy.replaceChildren(...[...source.options].map(option=>{const item=new Option(option.text,option.value);item.disabled=option.disabled||option.parentElement?.disabled;return item;}));
         if(available(copy,control.desired)) {
           // A saved value stays wanted until you change it or its parent: a later lookup may reload its choices.
