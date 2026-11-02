@@ -15,7 +15,15 @@ test('Chrome manifest uses a service worker and preserves shared document viewer
  assert.deepEqual(chrome.background,{service_worker:'extension-background.js'});
  assert.equal(chrome.browser_specific_settings,undefined);assert.equal(chrome.version,'1.2.0');
  assert.deepEqual(chrome.permissions,['storage']);
- assert.deepEqual(chrome.content_security_policy,firefox.content_security_policy);
+ const directives=policy=>Object.fromEntries(policy.split(';').filter(rule=>rule.trim()).map(rule=>{const [name,...values]=rule.trim().split(/\s+/);return [name,values];}));
+ const chromePolicy=directives(chrome.content_security_policy.extension_pages);
+ const firefoxPolicy=directives(firefox.content_security_policy.extension_pages);
+ assert.deepEqual(chromePolicy['worker-src'],["'self'"]);
+ for(const name of ['script-src','script-src-elem','worker-src']){
+  for(const value of chromePolicy[name]||[])assert.equal(value,"'self'",`Chrome rejects executable source ${value}`);
+ }
+ assert.deepEqual(chromePolicy,{...firefoxPolicy,'worker-src':["'self'"]});
+ assert.match(fs.readFileSync(path.join(root,'pdf-viewer.mjs'),'utf8'),/workerSrc=new URL\('\.\/vendor\/pdf\.worker\.mjs',import\.meta\.url\)/);
  for(const asset of ['pptx-viewer.mjs','vendor/pptx-renderer.browser.mjs','pdf-viewer.mjs']){
   assert.ok(chrome.web_accessible_resources[0].resources.includes(asset));assert.ok(fs.existsSync(path.join(root,asset)));
  }
