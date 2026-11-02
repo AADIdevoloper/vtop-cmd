@@ -68,4 +68,4 @@ git tag v1.2.1 origin/main
 git push origin v1.2.1
 ```
 
-The release workflow builds and publishes the Chrome and Firefox ZIPs. Attach the Mozilla-signed `.xpi` to the release afterwards.
+The release workflow builds and publishes the Chrome ZIP. Get the Firefox ZIP signed by Mozilla and attach the signed `.xpi` to the release afterwards.
