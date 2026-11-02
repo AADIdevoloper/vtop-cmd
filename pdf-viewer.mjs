@@ -118,7 +118,7 @@ window.addEventListener('keydown',event=>{
 });
 container.addEventListener('scroll',()=>{if(scrollFrame)return;scrollFrame=requestAnimationFrame(()=>{scrollFrame=null;updateCurrent();});},{passive:true});
 window.addEventListener('message',async event=>{
- if(received||event.source!==parent||event.origin!==parentOrigin||event.data?.type!=='pdf-data'||event.data.nonce!==nonce||!(event.data.bytes instanceof ArrayBuffer))return;
+ if(received||event.source!==parent||event.origin!==parentOrigin||event.data?.type!=='pdf-data'||event.data.nonce!==nonce||Object.prototype.toString.call(event.data.bytes)!=='[object ArrayBuffer]')return;
  received=true;notify('viewer-received');status('Opening PDF…');
  let timer;
  try{

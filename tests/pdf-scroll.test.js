@@ -3,7 +3,7 @@ const assert=require('node:assert/strict');
 const fs=require('node:fs');
 const {JSDOM}=require('jsdom');
 const pause=()=>new Promise(resolve=>setTimeout(resolve,35));
-function setup({query=''}={}){
+function setup({query='',bytes}={}){
  const html=fs.readFileSync(__dirname+'/../pdf-viewer.html','utf8');
  const dom=new JSDOM(html,{runScripts:'outside-only',url:`https://vtop.vit.ac.in/pdf-viewer.html${query}#scroll-test`,pretendToBeVisual:true}),w=dom.window;
  w.eval(fs.readFileSync(__dirname+'/../brand.js','utf8'));
@@ -18,7 +18,7 @@ function setup({query=''}={}){
  w.testPdf={GlobalWorkerOptions:{},VerbosityLevel:{ERRORS:0},getDocument:()=>({promise:Promise.resolve({numPages:3,getPage:async number=>({getViewport:({scale})=>({width:600*scale,height:800*scale}),render:()=>{paints.push(number);return{promise:Promise.resolve(),cancel(){}};},getTextContent:async()=>({items:[{str:`Sample page ${number}`} ]})})})})};
  let source=fs.readFileSync(__dirname+'/../pdf-viewer.mjs','utf8').replace(/^import \* as pdfjs[^\n]+\n/,'const pdfjs=window.testPdf;\n').replaceAll('import.meta.url',JSON.stringify('https://vtop.vit.ac.in/pdf-viewer.mjs'));
  w.eval(source);
- w.dispatchEvent(new w.MessageEvent('message',{source:w,origin:'https://vtop.vit.ac.in',data:{type:'pdf-data',nonce:'scroll-test',bytes:new w.ArrayBuffer(8)}}));
+ w.dispatchEvent(new w.MessageEvent('message',{source:w,origin:'https://vtop.vit.ac.in',data:{type:'pdf-data',nonce:'scroll-test',bytes:bytes||new w.ArrayBuffer(8)}}));
  return{dom,w,container,paints,entries:entries=>observer.callback(entries)};
 }
 test('continuous viewer creates every page in one scroll container and renders only nearby pages',async()=>{
@@ -40,6 +40,10 @@ test('zoom resizes all page placeholders while retaining continuous page order',
 test('viewer acknowledges the document and reports when it has loaded',async()=>{
  const {dom,w}=setup(),types=[];w.addEventListener('message',event=>types.push(event.data?.type));await pause();
  assert.ok(types.includes('viewer-loaded'));assert.equal(w.document.querySelector('#status').textContent,'');dom.window.close();
+});
+test('viewer accepts PDF bytes transferred from another JavaScript realm',async()=>{
+ const other=new JSDOM('');const {dom,w}=setup({bytes:new other.window.ArrayBuffer(8)});await pause();
+ assert.equal(w.document.querySelector('#total').textContent,'/ 3');assert.equal(w.document.querySelector('#status').textContent,'');other.window.close();dom.window.close();
 });
 test('Cmd/Ctrl+wheel and pinch zoom the document; a plain wheel only scrolls',async()=>{
  const {dom,w,container}=setup();await pause();const page=container.children[0],width=parseFloat(page.style.width);
