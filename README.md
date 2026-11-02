@@ -17,7 +17,11 @@ It works only on `https://vtop.vit.ac.in/vtop/*`. It reads VTOP the way you do, 
 
 ## Install
 
-The extension isn't published in an add-on store yet, so you load it yourself. This repository builds the Firefox extension for Firefox and Zen Browser.
+The extension isn't published in an add-on store yet, so you load it yourself. This repository builds Chrome/Brave and Firefox/Zen packages from the same runtime, including the local PowerPoint viewer.
+
+### Chrome and Brave
+
+Run `npm run build`, open `chrome://extensions` (or `brave://extensions`), enable **Developer mode**, select **Load unpacked**, and choose `dist/vtop-command/`. This package includes local PDF and `.pptx` previews and the Download option.
 
 ### Firefox and Zen Browser
 
@@ -33,7 +37,7 @@ To create a distributable ZIP instead, build the Firefox package:
    npm ci
    npm run build
    ```
-This creates `dist/vtop-command-firefox/` and `dist/vtop-command-firefox-1.2.0.zip`. Use this clean package for Mozilla signing; signed XPI files are kept out of the source repository.
+This creates `dist/vtop-command/` and `dist/vtop-command-1.2.0.zip` for Chrome/Brave, plus `dist/vtop-command-firefox/` and `dist/vtop-command-firefox-1.2.0.zip` for Firefox/Zen. To build only one browser, use `npm run build -- --browser chrome` or `npm run build -- --browser firefox`. Use this clean package for Mozilla signing; signed XPI files are kept out of the source repository.
 
 Temporary add-ons are removed when Firefox closes. After updating the code, rebuild the relevant package, remove or reload the old add-on, and refresh VTOP.
 
@@ -208,7 +212,7 @@ Your password, marks history and attendance are never saved by the extension.
 npm ci
 npm test       # unit and DOM tests (Node's test runner + jsdom)
 npm run check  # syntax check of every script
-npm run build  # builds dist/vtop-command-firefox and its ZIP
+npm run build  # builds Chrome and Firefox folders and their versioned ZIPs
 ```
 
 Tests use made-up data shaped like VTOP's real markup. No account data is included. Features have been checked on a signed-in account by browsing only; not every VTOP page has been verified. See [the dark-mode audit](docs/dark-mode-audit.md) for what was checked and its limits.
