@@ -130,7 +130,7 @@
     :host-context(html[data-vtop-command-dark]) .chip::after{background:#edf1fa;color:#182438}`;
   const deadlineCache=new Map(), deadlineStates=new WeakMap(), dueStates=new WeakMap(), liveBadges=new Set();
   // Each course's dashboard is reused for a random 1–5 hours, so refreshes never line up and VTOP sees far
-  // fewer requests. Entries live in chrome.storage.session (memory only, cleared when Chrome closes), never on disk.
+  // fewer requests. Entries live in browser session storage, cleared when the browser closes, never on disk.
   const MIN_CACHE=60*60000, MAX_CACHE=5*60*60000, cacheLifetime=()=>MIN_CACHE+Math.random()*(MAX_CACHE-MIN_CACHE);
   const sessionArea=(()=>{try{return chrome.storage.session||null;}catch{return null;}})();
   const cacheReady=(async()=>{

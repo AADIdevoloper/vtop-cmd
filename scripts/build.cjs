@@ -2,7 +2,7 @@ const { spawnSync } = require('node:child_process');
 
 const isWindows = process.platform === 'win32';
 const command = isWindows ? 'py' : 'python3';
-const args = [...(isWindows ? ['-3'] : []), 'scripts/build.py', ...process.argv.slice(2)];
+const args = [...(isWindows ? ['-3'] : []), 'scripts/build.py'];
 const result = spawnSync(command, args, { stdio: 'inherit' });
 
 if (result.error) {

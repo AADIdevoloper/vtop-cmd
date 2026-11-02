@@ -23,27 +23,27 @@
     iframe{display:block;width:100%;flex:1;min-height:0;border:0;background:var(--surface)}
     @media(max-width:480px){.brand-text{display:none}header{padding:12px 14px}}
     @media(prefers-reduced-motion:no-preference){dialog[open]{animation:arrive .13s ease-out}@keyframes arrive{from{transform:translateY(-8px);opacity:0}to{transform:translateY(0);opacity:1}}}
-  </style><dialog aria-label="PDF preview"><header><span class="brand">${logo}<span class="brand-text">VTOP / PDF</span></span><h2>PDF preview</h2><a class="download" hidden>Download</a><button class="close" type="button" aria-label="Close PDF preview">Esc</button></header><div class="status" role="status" aria-live="polite"></div></dialog>`;
+  </style><dialog aria-label="Document preview"><header><span class="brand">${logo}<span class="brand-text">VTOP / PREVIEW</span></span><h2>Document preview</h2><a class="download" hidden>Download</a><button class="close" type="button" aria-label="Close document preview">Esc</button></header><div class="status" role="status" aria-live="polite"></div></dialog>`;
   document.documentElement.append(host);
   const dialog=shadow.querySelector('dialog'),status=shadow.querySelector('.status'),download=shadow.querySelector('.download');
   const viewerURL=chrome.runtime.getURL('pdf-viewer.html');
   const parsedViewerURL=new URL(viewerURL);
-  const viewerOrigin=['chrome-extension:','moz-extension:'].includes(parsedViewerURL.protocol) ? `${parsedViewerURL.protocol}//${parsedViewerURL.host}` : parsedViewerURL.origin;
-  let activeId,blobURL,previousFocus,nonce,bytes,filename,frame,received,watchdog,dark=false;
+  const viewerOrigin=parsedViewerURL.protocol==='moz-extension:' ? `${parsedViewerURL.protocol}//${parsedViewerURL.host}` : parsedViewerURL.origin;
+  let activeId,blobURL,previousFocus,nonce,bytes,filename,documentType,frame,received,watchdog,dark=false;
   function setTheme(value){dark=value;host.toggleAttribute('data-dark',dark);}
   try {
     chrome.storage.local.get('darkMode').then(settings=>setTheme(settings.darkMode===true)).catch(()=>{});
     chrome.storage.onChanged.addListener((changes,area)=>{if(area==='local'&&changes.darkMode)setTheme(changes.darkMode.newValue===true);});
   } catch { /* Preview without the extension runtime. */ }
   function release(){ clearTimeout(watchdog);if(blobURL)URL.revokeObjectURL(blobURL);blobURL=null;bytes=null;frame?.remove();frame=null;download.removeAttribute('href');download.hidden=true; }
-  function deliver(){ if(bytes&&frame?.contentWindow&&!received)frame.contentWindow.postMessage({type:'pdf-data',nonce,bytes:bytes.slice(0),filename},viewerOrigin); }
+  function deliver(){ if(bytes&&frame?.contentWindow&&!received)frame.contentWindow.postMessage({type:'pdf-data',nonce,bytes:bytes.slice(0),filename,documentType},viewerOrigin); }
   // A new frame per document: reusing one turns viewer#a → viewer#b into a hash-only navigation that never reloads.
-  function mount(){
+  function mount(type){
     nonce=crypto.randomUUID();received=false;
-    frame=document.createElement('iframe');frame.title='PDF document viewer';frame.addEventListener('load',deliver);
+    frame=document.createElement('iframe');frame.title='Document viewer';frame.addEventListener('load',deliver);
     // The theme rides along in the URL so the viewer paints in the right colours from the first frame.
-    frame.src=`${viewerURL}?theme=${dark?'dark':'light'}#${nonce}`;dialog.append(frame);
-    watchdog=setTimeout(()=>{status.textContent='The viewer did not respond. Use Download to save the PDF, or retry the link.';},15000);
+    frame.src=`${viewerURL}?theme=${dark?'dark':'light'}&type=${encodeURIComponent(type)}#${nonce}`;dialog.append(frame);
+    watchdog=setTimeout(()=>{status.textContent='The viewer did not respond. Use Download to save the document, or retry the link.';},15000);
   }
   function close(){if(dialog.open)dialog.close();}
   shadow.querySelector('.close').addEventListener('click',close);
@@ -52,7 +52,7 @@
   dialog.addEventListener('close',()=>{activeId=null;release();if(previousFocus?.isConnected)previousFocus.focus();});
   function show(id){
     if(!dialog.open){previousFocus=document.activeElement;dialog.showModal();}
-    activeId=id;release();shadow.querySelector('h2').textContent='PDF preview';status.textContent='Loading PDF…';
+    activeId=id;release();shadow.querySelector('h2').textContent='Document preview';status.textContent='Loading document…';
   }
   window.addEventListener('message',async event=>{
     if(frame && event.source===frame.contentWindow){
@@ -60,7 +60,7 @@
       const type=event.data?.type;
       if(type==='viewer-ready')deliver();
       else if(type==='viewer-received')received=true;
-      else if(type==='viewer-loaded'||type==='viewer-error'){clearTimeout(watchdog);status.textContent='';}
+      else if(type==='viewer-loaded'||type==='viewer-error'){clearTimeout(watchdog);if(type==='viewer-loaded')status.textContent='';}
       // Keys pressed inside the viewer frame never reach this document; the viewer forwards them.
       else if(type==='viewer-key'&&event.data.key==='Escape')close();
       else if(type==='viewer-key'&&event.data.key==='k'){
@@ -73,20 +73,22 @@
     if(message.kind==='loading'){show(message.id);return;}
     if(message.id!==activeId)return;
     if(message.kind==='not-pdf'){close();return;}
-    if(message.kind==='error'){status.textContent='Unable to preview this document. Sign in again if needed, or Shift-click its original download link.';return;}
+    if(message.kind==='error'){status.textContent='Unable to load this document. Sign in again if needed, or Shift-click its original download link.';return;}
     if(message.kind!=='ready')return;
     const id=message.id;
     try{
       if(Object.prototype.toString.call(message.bytes)!=='[object ArrayBuffer]')throw new Error('Missing PDF data');
       const data=message.bytes;
       if(id!==activeId || !dialog.open)return;
-      if(new TextDecoder().decode(data.slice(0,5))!=='%PDF-')throw new Error('Not PDF');
       filename=String(message.filename||'document.pdf').replace(/[\\/\x00-\x1f]/g,'_').slice(0,180);
-      bytes=data;blobURL=URL.createObjectURL(new Blob([data],{type:'application/pdf'}));
+      documentType=message.documentType || (new TextDecoder().decode(data.slice(0,5))==='%PDF-'?'pdf':'unsupported');
+      const mime=documentType==='pptx'?'application/vnd.openxmlformats-officedocument.presentationml.presentation':documentType==='unsupported'?'application/vnd.ms-powerpoint':'application/pdf';
+      bytes=data;blobURL=URL.createObjectURL(new Blob([data],{type:mime}));
       download.href=blobURL;download.download=filename;download.hidden=false;
       shadow.querySelector('h2').textContent=filename;
-      status.textContent='';mount();
-    }catch{if(id===activeId)status.textContent='Unable to open this PDF. Retry the link, or Shift-click it to use the original download.';}
+      if(documentType==='unsupported'){status.textContent='Legacy .ppt files cannot be previewed here. Use Download to open this presentation in a compatible app.';return;}
+      status.textContent='';mount(documentType);
+    }catch{if(id===activeId)status.textContent='Unable to open this document. Retry the link, or Shift-click it to use the original download.';}
   });
   // Shortcut stays usable without placing the command menu behind an open preview.
   document.addEventListener('keydown',event=>{if(dialog.open&&shortcut.matches(event))close();},true);

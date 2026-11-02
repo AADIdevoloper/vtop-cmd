@@ -5,11 +5,11 @@ const {JSDOM}=require('jsdom');
 const source=fs.readFileSync(__dirname+'/../pdf-bridge.js','utf8');
 const pause=()=>new Promise(resolve=>setTimeout(resolve,35));
 const samplePdf=()=>new TextEncoder().encode('%PDF-1.4\npreview test').buffer;
-function bridge({body='%PDF-1.4\nmock',type='application/pdf',ok=true,navigation=false}={}){
+function bridge({body='%PDF-1.4\nmock',type='application/pdf',disposition="attachment; filename*=UTF-8''Lecture%20notes.pdf",ok=true,navigation=false}={}){
  const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window;
  const calls=[],messages=[],opens=[],downloads=[];
  let blobNumber=0;
- w.Blob=Blob;w.fetch=async(url,init)=>{calls.push({url,init});return{ok,blob:async()=>new Blob([body],{type}),headers:{get:()=>"attachment; filename*=UTF-8''Lecture%20notes.pdf"}};};
+ w.Blob=Blob;w.fetch=async(url,init)=>{calls.push({url,init});return{ok,blob:async()=>new Blob([body],{type}),headers:{get:name=>name==='content-type'?type:name==='content-disposition'?disposition:null}};};
  w.URL.createObjectURL=()=>`blob:https://vtop.vit.ac.in/${++blobNumber}`;w.URL.revokeObjectURL=()=>{};
  w.open=(...args)=>opens.push(args);
  w.HTMLAnchorElement.prototype.click=function(){downloads.push({href:this.href,name:this.download});};
@@ -31,6 +31,16 @@ test('PDF headers within the first 1024 bytes are recognized',async()=>{
  const prefix='VTOP document preamble '.repeat(3),{dom,w,messages,downloads}=bridge({body:`${prefix}%PDF-1.4\nmock`});
  w.open('/vtop/download/course.pdf');await pause();
  assert.ok(messages.some(message=>message.kind==='ready'));assert.equal(downloads.length,0);dom.window.close();
+});
+test('PPTX downloads are previewed, while legacy PPT stays downloadable with a clear unsupported type',async()=>{
+ const pptx=bridge({body:'PK\u0003\u0004presentation',type:'application/vnd.openxmlformats-officedocument.presentationml.presentation',disposition:null});
+ pptx.w.open('/vtop/download/Week%201.pptx');await pause();
+ const ready=pptx.messages.find(message=>message.kind==='ready');
+ assert.equal(ready.documentType,'pptx');assert.equal(ready.filename,'Week 1.pptx');assert.equal(pptx.downloads.length,0);pptx.dom.window.close();
+ const legacy=bridge({body:'legacy presentation',type:'application/vnd.ms-powerpoint',disposition:null});
+ legacy.w.open('/vtop/download/Week%201.ppt');await pause();
+ const old=legacy.messages.find(message=>message.kind==='ready');
+ assert.equal(old.documentType,'unsupported');assert.equal(old.filename,'Week 1.ppt');legacy.dom.window.close();
 });
 test('external URLs and ordinary VTOP navigation retain native browser behavior',async()=>{
  const {dom,w,calls,opens}=bridge();w.open('https://example.com/file.pdf');w.open('/vtop/academics/home');
@@ -57,7 +67,13 @@ test('PDF resources are bundled locally and MAIN interception is scoped only to 
  const manifest=JSON.parse(fs.readFileSync(__dirname+'/../manifest.json'));
  const main=manifest.content_scripts.find(script=>script.world==='MAIN');assert.deepEqual(main.matches,['https://vtop.vit.ac.in/vtop/*']);assert.equal(main.run_at,'document_start');
  assert.deepEqual(manifest.permissions,['storage']);
- for(const file of ['pdf-viewer.html','pdf-viewer.mjs','pdf-viewer.css'])assert.ok(fs.existsSync(__dirname+'/../'+file));
+ const viewerResources=manifest.web_accessible_resources.find(resource=>resource.resources.includes('pdf-viewer.html')).resources;
+ for(const file of ['pdf-viewer.html','pdf-viewer.css','pdf-viewer.mjs','pptx-viewer.mjs','brand.js','vendor/pdf.mjs','vendor/pdf.worker.mjs','vendor/pptx-renderer.browser.mjs']) {
+  assert.ok(fs.existsSync(__dirname+'/../'+file));
+  assert.ok(viewerResources.includes(file));
+ }
+ assert.ok(viewerResources.includes('vendor/cmaps/*'));
+ assert.ok(viewerResources.includes('vendor/standard_fonts/*'));
  assert.ok(!fs.readFileSync(__dirname+'/../pdf-viewer.html','utf8').includes('https://'));
 });
 test('Shift-click bypasses the viewer for native javascript download helpers',()=>{
@@ -67,7 +83,7 @@ test('Shift-click bypasses the viewer for native javascript download helpers',()
 });
 test('preview ignores forged origins and accepts PDF bytes without fetching page blob URLs',async()=>{
  const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window;
- w.chrome={runtime:{getURL:name=>'chrome-extension://test-extension/'+name}};
+ w.chrome={runtime:{getURL:name=>'moz-extension://test-extension/'+name}};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
  w.URL.createObjectURL=()=>'blob:https://vtop.vit.ac.in/preview-copy';w.URL.revokeObjectURL=()=>{};
  let fetched=0;w.fetch=async()=>{fetched++;throw new Error('Should not fetch');};
@@ -80,7 +96,7 @@ test('preview ignores forged origins and accepts PDF bytes without fetching page
 });
 test('a click on the preview backdrop closes it; clicks inside do not',()=>{
  const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window;
- w.chrome={runtime:{getURL:name=>'chrome-extension://test-extension/'+name}};
+ w.chrome={runtime:{getURL:name=>'moz-extension://test-extension/'+name}};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
  w.eval(fs.readFileSync(__dirname+'/../brand.js','utf8'));w.eval(fs.readFileSync(__dirname+'/../pdf-preview.js','utf8'));
  w.dispatchEvent(new w.MessageEvent('message',{source:w,origin:w.location.origin,data:{source:'vtop-command-pdf',id:'pdf-1-1',kind:'loading'}}));
@@ -92,7 +108,7 @@ test('a click on the preview backdrop closes it; clicks inside do not',()=>{
 test('preview Download keeps original PDF bytes and filename, and Close revokes temporary data',async()=>{
  const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window;
  const bytes=new TextEncoder().encode('%PDF-1.4\noriginal bytes').buffer,revoked=[];
- w.chrome={runtime:{getURL:name=>'chrome-extension://test-extension/'+name}};
+ w.chrome={runtime:{getURL:name=>'moz-extension://test-extension/'+name}};
  w.TextDecoder=TextDecoder;w.Blob=Blob;w.fetch=async()=>({arrayBuffer:async()=>bytes});
  w.URL.createObjectURL=()=> 'blob:https://vtop.vit.ac.in/original-copy';w.URL.revokeObjectURL=url=>revoked.push(url);
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
@@ -164,7 +180,7 @@ test('synthetic clicks on detached blob anchors and icon-only download buttons o
 });
 test('preview mounts a fresh viewer frame per document and delivers bytes on load',async()=>{
  const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window;
- w.chrome={runtime:{getURL:name=>'chrome-extension://test-extension/'+name}};
+ w.chrome={runtime:{getURL:name=>'moz-extension://test-extension/'+name}};
  w.TextDecoder=TextDecoder;w.Blob=Blob;w.fetch=async()=>({arrayBuffer:async()=>new TextEncoder().encode('%PDF-1.4').buffer});
  w.URL.createObjectURL=()=>'blob:https://vtop.vit.ac.in/copy';w.URL.revokeObjectURL=()=>{};
  w.HTMLDialogElement.prototype.showModal=function(){this.open=true;};w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
@@ -174,7 +190,7 @@ test('preview mounts a fresh viewer frame per document and delivers bytes on loa
  send('pdf-1-1','loading');send('pdf-1-1','ready',{bytes:samplePdf()});await pause();
  const first=shadow.querySelector('iframe');assert.ok(first);
  const posted=[];first.contentWindow.postMessage=(data,origin)=>posted.push({data,origin});first.dispatchEvent(new w.Event('load'));
- assert.equal(posted.length,1);assert.equal(posted[0].data.type,'pdf-data');assert.equal(posted[0].origin,'chrome-extension://test-extension');
+ assert.equal(posted.length,1);assert.equal(posted[0].data.type,'pdf-data');assert.equal(posted[0].origin,'moz-extension://test-extension');
  send('pdf-2-2','loading');assert.equal(shadow.querySelector('iframe'),null);
  send('pdf-2-2','ready',{bytes:samplePdf()});await pause();
  const second=shadow.querySelector('iframe');assert.ok(second&&second!==first);assert.notEqual(second.src,first.src);
@@ -190,7 +206,7 @@ test('Firefox opaque extension message origin completes the viewer-ready handsha
  assert.equal(posted.length,1);assert.equal(posted[0].data.type,'pdf-data');assert.equal(posted[0].origin,'moz-extension://test-extension');
  dom.window.close();
 });
-function previewWindow({dark=false,extensionProtocol='chrome-extension:'}={}){
+function previewWindow({dark=false,extensionProtocol='moz-extension:'}={}){
  const dom=new JSDOM('<!doctype html><html><body></body></html>',{runScripts:'outside-only',url:'https://vtop.vit.ac.in/vtop/content'}),w=dom.window,listeners=[];
  w.chrome={runtime:{getURL:name=>`${extensionProtocol}//test-extension/${name}`},storage:{local:{get:async()=>({darkMode:dark})},onChanged:{addListener:listener=>listeners.push(listener)}}};
  w.TextDecoder=TextDecoder;w.Blob=Blob;w.fetch=async()=>({arrayBuffer:async()=>new TextEncoder().encode('%PDF-1.4').buffer});
@@ -204,16 +220,28 @@ function previewWindow({dark=false,extensionProtocol='chrome-extension:'}={}){
 test('preview shares the command menu palette and follows the saved dark mode, passing it to the viewer',async()=>{
  const {dom,w,host,shadow,send,listeners}=previewWindow({dark:true});await pause();
  assert.equal(host.hasAttribute('data-dark'),true);assert.match(shadow.querySelector('style').textContent,/--surface:#171d29/);
- assert.match(shadow.querySelector('.brand').textContent,/VTOP \/ PDF/);assert.equal(shadow.querySelector('.close').textContent,'Esc');
+ assert.match(shadow.querySelector('.brand').textContent,/VTOP \/ PREVIEW/);assert.equal(shadow.querySelector('.close').textContent,'Esc');
  send('pdf-1-1','loading');send('pdf-1-1','ready',{bytes:samplePdf()});await pause();
- assert.match(shadow.querySelector('iframe').src,/\?theme=dark#/);
+ assert.match(shadow.querySelector('iframe').src,/\?theme=dark&\btype=pdf#/);
  listeners.forEach(listener=>listener({darkMode:{newValue:false}},'local'));assert.equal(host.hasAttribute('data-dark'),false);dom.window.close();
+});
+test('PPTX preview routes bytes to the presentation viewer and legacy PPT offers download without a frame',async()=>{
+ const pptx=previewWindow(),presentation=new TextEncoder().encode('PK\u0003\u0004slides').buffer;
+ pptx.send('pdf-1-1','loading');pptx.send('pdf-1-1','ready',{bytes:presentation,filename:'slides.pptx',documentType:'pptx'});await pause();
+ assert.match(pptx.shadow.querySelector('iframe').src,/type=pptx#/);
+ pptx.dom.window.close();
+ const legacy=previewWindow();
+ legacy.send('pdf-1-1','loading');legacy.send('pdf-1-1','ready',{bytes:new TextEncoder().encode('old powerpoint').buffer,filename:'slides.ppt',documentType:'unsupported'});
+ assert.equal(legacy.shadow.querySelector('iframe'),null);
+ assert.match(legacy.shadow.querySelector('.status').textContent,/Legacy \.ppt files cannot be previewed/);
+ assert.equal(legacy.shadow.querySelector('.download').download,'slides.ppt');
+ legacy.dom.window.close();
 });
 test('Escape and Cmd/Ctrl+K forwarded from the viewer close the preview and reopen the command menu',async()=>{
  const {dom,w,shadow,send}=previewWindow();await pause();const keys=[];
  w.document.addEventListener('keydown',event=>keys.push(event.key));
  const open=async id=>{send(id,'loading');send(id,'ready',{bytes:samplePdf()});await pause();return shadow.querySelector('iframe');};
- const fromViewer=(frame,key)=>{const nonce=new URL(frame.src).hash.slice(1);w.dispatchEvent(new w.MessageEvent('message',{source:frame.contentWindow,origin:'chrome-extension://test-extension',data:{type:'viewer-key',key,nonce}}));};
+ const fromViewer=(frame,key)=>{const nonce=new URL(frame.src).hash.slice(1);w.dispatchEvent(new w.MessageEvent('message',{source:frame.contentWindow,origin:'moz-extension://test-extension',data:{type:'viewer-key',key,nonce}}));};
  const dialog=shadow.querySelector('dialog');
  fromViewer(await open('pdf-1-1'),'Escape');assert.equal(dialog.open,false);assert.deepEqual(keys,[]);
  fromViewer(await open('pdf-2-2'),'k');assert.equal(dialog.open,false);assert.deepEqual(keys,['k']);dom.window.close();

@@ -17,32 +17,25 @@ It works only on `https://vtop.vit.ac.in/vtop/*`. It reads VTOP the way you do, 
 
 ## Install
 
-The extension isn't published in an add-on store yet, so you load it yourself. Chromium and Firefox builds are available.
+The extension isn't published in an add-on store yet, so you load it yourself. This repository builds the Firefox extension for Firefox and Zen Browser.
 
-### Chrome, Brave and Edge
+Generated packages go in `dist/`, which is intentionally not tracked in Git. You can load the repository's top-level manifest directly, or build a Firefox package and distributable ZIP.
 
-1. Build the Chromium package from this folder:
+### Firefox and Zen Browser
+
+1. Open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on…**, and select the repository's top-level `manifest.json`.
+2. Open VTOP and sign in as usual.
+
+The top-level manifest and its tracked files are a complete Firefox extension. The PDF.js and PowerPoint renderers, including their required assets, are included under `vendor/`; no build step, dependency installation, or `dist/` folder is needed to load it.
+
+To create a distributable ZIP instead, build the Firefox package:
    ```bash
    npm ci
    npm run build
    ```
-   This creates `dist/vtop-command/` and `dist/vtop-command.zip`.
-2. Open `chrome://extensions` (or `brave://extensions`) and turn on **Developer mode**.
-3. Choose **Load unpacked** and select `dist/vtop-command`.
-4. Open VTOP and sign in as usual.
+This creates `dist/vtop-command-firefox/` and its ZIP.
 
-### Firefox
-
-1. Build the Firefox package:
-   ```bash
-   npm ci
-   npm run build:firefox
-   ```
-   This creates `dist/vtop-command-firefox/`.
-2. Open `about:debugging#/runtime/this-firefox`, choose **Load Temporary Add-on…**, and select `dist/vtop-command-firefox/manifest.json`.
-3. Open VTOP and sign in as usual.
-
-Temporary add-ons are removed when Firefox closes. After updating the code, rebuild the relevant package, reload the add-on in the browser, and refresh VTOP.
+Temporary add-ons are removed when Firefox closes. After updating the code, rebuild the relevant package, remove or reload the old add-on, and refresh VTOP.
 
 ---
 
@@ -52,7 +45,7 @@ Temporary add-ons are removed when Firefox closes. After updating the code, rebu
 
 Press **⌘K** on macOS or **Ctrl+K** on Windows/Linux on any VTOP page. You can also click the small launcher in the bottom-right corner, or the extension's toolbar icon.
 
-- **Search every page:** type a page name, a category or a common alias, such as `DA`, `CGPA`, `timetable`, `attendance` or `marks`. Use ↑/↓ and Enter, or click a result.
+- **Search every page:** type a page name, a category or a common alias, such as `DA`, `CGPA`, `timetable`, `attendance` or `marks`. Typo-tolerant fuzzy matching also finds pages when a query has a small spelling error. Use ↑/↓ and Enter, or click a result.
 - **Always current:** the menu reads VTOP's own menu each time it opens, including collapsed sections, so new pages show up on their own. Repeated names, such as regular and arrear exam schedules, are labelled by their section.
 - **Opens pages VTOP's way:** choosing a page clicks VTOP's own menu link, exactly as if you had clicked it.
 - **Commands:** **Home**, **Dark mode**, **Choose default semester**, **CGPA calculator**, and filter-memory settings are all in the menu.
@@ -137,18 +130,19 @@ Every dropdown in the extension's own windows (the semester picker, the CGPA cal
 
 On pages where you pick a course or exam to view a report, your last choice is remembered for each page and semester. It's then selected for you next time. Use **Turn off filter memory** or **Forget saved page filters** in the menu to stop or clear it.
 
-### PDF viewer
+### Document previews
 
-VTOP's PDF downloads, such as course materials and the curriculum, open in a built-in viewer instead of downloading straight away.
+VTOP's PDF and `.pptx` downloads, such as course materials and presentations, open in a built-in viewer instead of downloading straight away.
 
 - **Reading:** scroll through all pages, or type a page number to jump to it.
 - **Zoom:** use ⌘/Ctrl + scroll, a trackpad pinch, ⌘/Ctrl + `+`/`−`, or the toolbar. ⌘/Ctrl + `0` or **Fit width** resets it.
 - **Download** saves the original file whenever you want it.
 - **Closing:** **Esc**, **Close** or a click outside closes the viewer.
 - **Password-protected PDFs** ask for the password inside the viewer.
-- **Bypass:** Shift-click a link to download it the normal way. Files that aren't PDFs download as usual.
+- **Presentations:** `.pptx` slides are rendered locally. Legacy `.ppt` files cannot be previewed, but remain available through **Download**.
+- **Bypass:** Shift-click a link to download it the normal way. Files that aren't supported preview types download as usual.
 
-The viewer is bundled with the extension (PDF.js), so documents are never sent to an outside service.
+The viewers and renderers are bundled with the extension, so documents are never sent to an outside service.
 
 ### Small fixes
 
@@ -214,8 +208,7 @@ Your password, marks history and attendance are never saved by the extension.
 npm ci
 npm test       # unit and DOM tests (Node's test runner + jsdom)
 npm run check  # syntax check of every script
-npm run build          # builds the Chromium package and ZIP
-npm run build:firefox  # builds dist/vtop-command-firefox and its ZIP
+npm run build  # builds dist/vtop-command-firefox and its ZIP
 ```
 
 Tests use made-up data shaped like VTOP's real markup. No account data is included. Features have been checked on a signed-in account by browsing only; not every VTOP page has been verified. See [the dark-mode audit](docs/dark-mode-audit.md) for what was checked and its limits.
@@ -224,7 +217,7 @@ Tests use made-up data shaped like VTOP's real markup. No account data is includ
 
 | File | Purpose |
 | --- | --- |
-| `manifest.json` | Firefox Manifest V3 source; the Chromium build substitutes its service-worker background |
+| `manifest.json` | Firefox Manifest V3 source manifest |
 | `brand.js` | Shared logo, colours and platform shortcut |
 | `combobox.js` | Searchable dropdown used in the extension's own windows |
 | `search-select.js` | Type-to-search for Late Hour and Leave Request dropdowns |
