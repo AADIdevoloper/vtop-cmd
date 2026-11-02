@@ -74,6 +74,7 @@ test('empty results, signed-out state, and theme restore/toggle without persisti
 test('manifest has only local preference storage and VTOP-only content scope, all shipped files exist',()=>{
   const manifest=JSON.parse(fs.readFileSync(__dirname+'/../manifest.json'));
   assert.equal(manifest.manifest_version,3); assert.deepEqual(manifest.permissions,['storage']);
+  assert.deepEqual(manifest.background,{scripts:['extension-action.js']});
   assert.deepEqual(manifest.content_scripts[0].matches,['https://vtop.vit.ac.in/vtop/*']);
   for(const file of [...manifest.content_scripts[0].js,...manifest.content_scripts[0].css]) assert.ok(fs.existsSync(__dirname+'/../'+file));
 });

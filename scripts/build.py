@@ -19,12 +19,9 @@ manifest = json.loads((root / 'manifest.json').read_text())
 assert manifest['manifest_version'] == 3
 if args.firefox:
     manifest['background'] = {'scripts': ['extension-action.js']}
-    manifest['browser_specific_settings'] = {
-        'gecko': {
-            'id': 'vtop-command@sid-1524',
-            'strict_min_version': '128.0'
-        }
-    }
+else:
+    manifest['background'] = {'service_worker': 'extension-action.js'}
+    manifest.pop('browser_specific_settings', None)
 for size, name in manifest.get('icons', {}).items():
     data = (root / name).read_bytes()
     assert data[:8] == b'\x89PNG\r\n\x1a\n'

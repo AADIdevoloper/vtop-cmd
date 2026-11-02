@@ -224,7 +224,7 @@ Tests use made-up data shaped like VTOP's real markup. No account data is includ
 
 | File | Purpose |
 | --- | --- |
-| `manifest.json` | Manifest V3 source; the Firefox build substitutes its background-script format and adds Gecko metadata |
+| `manifest.json` | Firefox Manifest V3 source; the Chromium build substitutes its service-worker background |
 | `brand.js` | Shared logo, colours and platform shortcut |
 | `combobox.js` | Searchable dropdown used in the extension's own windows |
 | `search-select.js` | Type-to-search for Late Hour and Leave Request dropdowns |

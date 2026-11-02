@@ -71,6 +71,14 @@
     }
   },
   "background": {
-    "service_worker": "extension-action.js"
+    "scripts": [
+      "extension-action.js"
+    ]
+  },
+  "browser_specific_settings": {
+    "gecko": {
+      "id": "vtop-command@sid-1524",
+      "strict_min_version": "128.0"
+    }
   }
 }
