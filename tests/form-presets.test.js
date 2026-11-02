@@ -122,3 +122,14 @@ test('resetting a lookup parent empties its dependents without asking VTOP',asyn
  s.ui.querySelector('.save').click();await pause();const values=Object.values(s.store.formPresets)[0].values;
  assert.ok(!Object.keys(values).some(key=>/costCentreId|appliedTo/.test(key)));s.dom.window.close();
 });
+test('a redraw that keeps your different choice is not overwritten by the preset; a blank redraw is filled again',async()=>{
+ const markup='<main id="b5-pagewrapper"><h2>Digital Assignment</h2><form id="da"><div id="block"><select id="semesterSubId" name="semesterSubId"><option value="">Choose</option><option value="fall">Fall</option><option value="winter">Winter</option></select></div></form></main>';
+ const s=await setup(markup);s.open();choose(s,'semesterSubId','fall');s.ui.querySelector('.save').click();await pause();
+ const d=s.w.document;assert.equal(d.querySelector('#semesterSubId').value,'fall');
+ // You pick Winter; VTOP redraws the block with Winter still selected.
+ d.querySelector('#block').innerHTML='<select id="semesterSubId" name="semesterSubId"><option value="">Choose</option><option value="fall">Fall</option><option value="winter" selected>Winter</option></select>';await pause();await pause();
+ assert.equal(d.querySelector('#semesterSubId').value,'winter','your choice stays');
+ // A fresh, empty redraw is filled again.
+ d.querySelector('#block').innerHTML='<select id="semesterSubId" name="semesterSubId"><option value="">Choose</option><option value="fall">Fall</option><option value="winter">Winter</option></select>';await pause();await pause();
+ assert.equal(d.querySelector('#semesterSubId').value,'fall');s.dom.window.close();
+});
