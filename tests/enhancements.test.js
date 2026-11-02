@@ -12,8 +12,9 @@ function setup(html,settings={},fetch,session){
  w.HTMLDialogElement.prototype.close=function(){this.open=false;this.dispatchEvent(new w.Event('close'));};
  w.chrome={storage:{local:{get:async()=>({defaultSemester:null,...settings}),set:async v=>writes.push(JSON.parse(JSON.stringify(v)))},onChanged:{addListener(){}},
   ...(session?{session:{get:async()=>JSON.parse(JSON.stringify(session.data)),set:async v=>{Object.assign(session.data,JSON.parse(JSON.stringify(v)));session.writes.push(JSON.parse(JSON.stringify(v)));}}}:{})}};
+ if(session?.runtime){w.chrome.runtime=session.runtime;delete w.chrome.storage.session;}
  if(fetch)w.fetch=fetch;
- for(const file of ['brand.js','combobox.js','navigation.js','semesters.js','enhancements.js','content.js','page-enhancements.js','enhancements-ui.js'])w.eval(fs.readFileSync(root+file,'utf8'));
+ for(const file of ['brand.js','combobox.js','navigation.js','semesters.js','enhancements.js','content.js','deadline-cache-client.js','page-enhancements.js','enhancements-ui.js'])w.eval(fs.readFileSync(root+file,'utf8'));
  return{dom,w,writes,shadow:w.document.querySelector('#vtop-command-root').shadowRoot};
 }
 const pause=()=>new Promise(r=>setTimeout(r,200));
@@ -257,4 +258,21 @@ test('All semesters on Course Page survives a re-render in the same visit and re
  fresh();await pause();assert.deepEqual([...w.document.querySelector('#courseId').options].map(o=>o.value),['','W1','F1','OLD','F2'],'still all semesters after VTOP re-renders');
  const link=w.document.createElement('a');link.className='systemB5BtnMenu';link.dataset.url='academics/common/CoursePageConsolidated';link.href='#';link.addEventListener('click',e=>e.preventDefault());w.document.body.append(link);link.click();
  fresh();await pause();assert.deepEqual([...w.document.querySelector('#courseId').options].map(o=>o.value),['','F1','F2'],'a new visit starts filtered to the default');dom.window.close();
+});
+
+// Exercise the complete page -> client -> background path with Firefox's restricted content storage.
+test('Firefox assignment dashboard reuses privileged session cache after reload and ignores a foreign base URL',async()=>{
+ const vm=require('node:vm');let listener;const data={},calls=[];
+ const browser={runtime:{id:'test-extension',onMessage:{addListener:fn=>{listener=fn;}}},storage:{session:{
+  get:async key=>({[key]:data[key]}),set:async value=>Object.assign(data,JSON.parse(JSON.stringify(value)))
+ }}};
+ vm.runInNewContext(fs.readFileSync(root+'deadline-cache.js','utf8'),{browser,Date,Map,Object,Number});
+ const runtime={sendMessage:message=>new Promise(resolve=>listener(message,{id:'test-extension',url:'https://vtop.vit.ac.in/vtop/content'},resolve))};
+ const fetch=async(url,options)=>{calls.push(String(url));assert.equal(options.credentials,'same-origin');return {ok:true,text:async()=>dashboardHTML([])};};
+ const html='<base href="https://example.com/">'+courseList(['A1','B2']);
+ const first=setup(html,{},fetch,{runtime});await pause();await pause();
+ assert.equal(calls.length,2);assert.ok(calls.every(url=>url==='https://vtop.vit.ac.in/vtop/examinations/processDigitalAssignment'));
+ assert.deepEqual(Object.keys(data['deadlineCache:TEST-ID']).sort(),['A1','B2']);first.dom.window.close();
+ const second=setup(html,{},fetch,{runtime});await pause();await pause();
+ assert.equal(calls.length,2,'reload makes no additional assignment requests');second.dom.window.close();
 });

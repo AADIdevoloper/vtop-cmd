@@ -75,7 +75,7 @@ test('manifest has only local preference storage and VTOP-only content scope, al
   const manifest=JSON.parse(fs.readFileSync(__dirname+'/../manifest.json'));
   assert.equal(manifest.manifest_version,3); assert.deepEqual(manifest.permissions,['storage']);
   assert.deepEqual(manifest.browser_specific_settings.gecko.data_collection_permissions,{required:['none']});
-  assert.deepEqual(manifest.background,{scripts:['extension-action.js']});
+  assert.deepEqual(manifest.background,{scripts:['deadline-cache.js','extension-action.js']});
   assert.deepEqual(manifest.content_scripts[0].matches,['https://vtop.vit.ac.in/vtop/*']);
   for(const file of [...manifest.content_scripts[0].js,...manifest.content_scripts[0].css]) assert.ok(fs.existsSync(__dirname+'/../'+file));
   const viewerResources=manifest.web_accessible_resources.find(resource=>resource.resources.includes('pdf-viewer.html')).resources;

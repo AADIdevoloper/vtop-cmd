@@ -132,7 +132,7 @@
   // Each course's dashboard is reused for a random 1–5 hours, so refreshes never line up and VTOP sees far
   // fewer requests. Entries live in browser session storage, cleared when the browser closes, never on disk.
   const MIN_CACHE=60*60000, MAX_CACHE=5*60*60000, cacheLifetime=()=>MIN_CACHE+Math.random()*(MAX_CACHE-MIN_CACHE);
-  const sessionArea=(()=>{try{return chrome.storage.session||null;}catch{return null;}})();
+  const sessionArea=globalThis.VtopDeadlineCache?.create()||(()=>{try{return chrome.storage.session||null;}catch{return null;}})();
   const cacheReady=(async()=>{
     try{
       const saved=(await sessionArea?.get('deadlineCache'))?.deadlineCache;
@@ -140,13 +140,13 @@
         if(Array.isArray(entry?.records)&&entry.expires>Date.now()&&!deadlineCache.has(classId))deadlineCache.set(classId,{status:'done',records:entry.records,expires:entry.expires});
     }catch{/* No session access: this page's memory only. */}
   })();
-  function persistDeadlines(){
+  function persistDeadlines(change){
     if(!sessionArea)return;
     const now=Date.now(),entries={};
     for(const [classId,entry] of deadlineCache)if(entry.status==='done'&&entry.expires>now)entries[classId]={records:entry.records,expires:entry.expires};
-    try{sessionArea.set({deadlineCache:entries})?.catch(()=>{});}catch{/* Extension reloaded. */}
+    try{(sessionArea.update?sessionArea.update(change):sessionArea.set({deadlineCache:entries}))?.catch(()=>{});}catch{/* Extension reloaded. */}
   }
-  function storeDeadlines(classId,records){deadlineCache.set(classId,{status:'done',records,expires:Date.now()+cacheLifetime()});persistDeadlines();}
+  function storeDeadlines(classId,records){const entry={status:'done',records,expires:Date.now()+cacheLifetime()};deadlineCache.set(classId,entry);persistDeadlines({put:{[classId]:entry}});}
   const freshDeadlines=classId=>{const entry=deadlineCache.get(classId);return entry?.status==='done'&&entry.expires>Date.now()?entry:null;};
   let deadlineQueue=[], deadlineController=null, deadlineRunning=false;
   const istDate=(time,dateOnly)=>new Intl.DateTimeFormat('en-IN',{timeZone:'Asia/Kolkata',day:'numeric',month:'short',...(dateOnly?{}:{hour:'numeric',minute:'2-digit'})}).format(time);
@@ -182,7 +182,7 @@
   async function loadDeadlines(classId,signal){
     const csrf=document.querySelector('input[name="_csrf"]')?.value,id=document.querySelector('#authorizedID')?.value||document.querySelector('#authorizedIDX')?.value;
     if(!csrf||!id)throw new Error('Not signed in');
-    const response=await fetch(new URL('examinations/processDigitalAssignment',document.baseURI),{method:'POST',credentials:'same-origin',signal,
+    const response=await fetch(new URL('/vtop/examinations/processDigitalAssignment',location.origin),{method:'POST',credentials:'same-origin',signal,
       headers:{'Content-Type':'application/x-www-form-urlencoded'},body:new URLSearchParams({_csrf:csrf,classId,authorizedID:id,x:new Date().toUTCString()})});
     const html=response.ok?await response.text():'';
     if(!html||html.includes('___INTERNAL___RESPONSE___'))throw new Error('Unavailable');
@@ -225,9 +225,9 @@
   function forgetDeadlines(control){
     const classId=control?.closest?.('form')?.querySelector('input[name="classIdNumber"],input[name="classId1"]')?.value||dashboardClassId();
     // An upload whose course can't be told apart releases every course, so nothing stale survives it.
-    if(!classId){cacheReady.then(()=>{if(deadlineCache.size){deadlineCache.clear();persistDeadlines();}});return;}
+    if(!classId){cacheReady.then(()=>{if(deadlineCache.size){deadlineCache.clear();persistDeadlines({clear:true});}});return;}
     uploadedClass=classId;
-    cacheReady.then(()=>{if(deadlineCache.delete(classId))persistDeadlines();});
+    cacheReady.then(()=>{if(deadlineCache.delete(classId))persistDeadlines({remove:[classId]});});
   }
   document.addEventListener('change',event=>{if(event.target?.matches?.('input[type=file]'))forgetDeadlines(event.target);},true);
   document.addEventListener('submit',event=>{if(event.target?.querySelector?.('input[type=file]'))forgetDeadlines(event.target);},true);
