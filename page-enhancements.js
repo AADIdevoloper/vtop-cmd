@@ -9,6 +9,9 @@
   const courseStates = new WeakMap(), attendanceStates = new WeakMap();
   const courseHosts = new Map();
   let preference = null, ready = false;
+  // All semesters stays chosen for the rest of this page visit, even when VTOP re-renders the course list.
+  let showAllCourses = false;
+  document.addEventListener('vtop-page-visit',()=>{showAllCourses=false;});
 
   function courseDropdown(select) {
     if (select.multiple || select.disabled) return false;
@@ -27,14 +30,14 @@
     const shadow = host.attachShadow({mode:'open'});
     shadow.innerHTML=`<style>:host{display:block;margin:8px 0 12px;font:13px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:inherit}.bar{display:flex;gap:7px;align-items:center;flex-wrap:wrap}button{font:inherit;padding:6px 10px;border:1px solid #8597af;border-radius:7px;background:transparent;color:inherit;cursor:pointer}button[aria-pressed=true]{background:#2459b8;color:#fff;border-color:#2459b8}button:disabled{opacity:.5;cursor:default}button:focus-visible{outline:2px solid #5a86e8;outline-offset:2px}p{font-size:12px;margin:5px 0;opacity:.85}</style><div class="bar" role="group" aria-label="Course semester filter"><span>Courses:</span><button type="button" class="default" aria-pressed="true">Default semester</button><button type="button" class="all" aria-pressed="false">All semesters</button></div><p role="status"></p>`;
     select.before(host);
-    const state = {host,shadow,children:snapshot(select),expected:[...select.options],showAll:false};
+    const state = {host,shadow,children:snapshot(select),expected:[...select.options],showAll:showAllCourses};
     courseHosts.set(host,select);
     shadow.querySelector('.default').addEventListener('click',()=>{
       // With no default yet, the button opens the launcher's semester picker instead of doing nothing.
       if(!preference?.label){document.getElementById('vtop-command-root')?.dispatchEvent(new CustomEvent('vtop-choose-semester'));return;}
-      state.showAll=false;filterCourses(select,state);
+      state.showAll=showAllCourses=false;filterCourses(select,state);
     });
-    shadow.querySelector('.all').addEventListener('click',()=>{state.showAll=true;filterCourses(select,state);});
+    shadow.querySelector('.all').addEventListener('click',()=>{state.showAll=showAllCourses=true;filterCourses(select,state);});
     return state;
   }
   function filterCourses(select,state) {

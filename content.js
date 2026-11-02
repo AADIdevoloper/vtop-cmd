@@ -53,7 +53,17 @@
   const list = shadow.querySelector('.results');
   let commands = [], filtered = [], selected = 0, recent = [], previousFocus, dark = false;
   let defaultSemester = null, preferencesReady = false, prompted = false, semesterView = false;
-  let appliedSemesters = new WeakMap();
+  // The default semester is applied once per page visit. A visit starts on load or when a VTOP page is opened from
+  // its menu (or this one); later re-renders of the same page, e.g. after you pick another semester, keep your choice.
+  let pageVisit = 0, appliedSemesters = new Map(), staleSemesters = new WeakSet();
+  const semesterSlot = select => select.id || select.name || 'semester';
+  const pageLinks = 'a.systemB5BtnMenu[data-url],a.systemBtnMenu[data-url],a.quickB5MainMenu[data-url],a[onclick*="home()"]';
+  function newPageVisit() {
+    pageVisit++;
+    // Dropdowns of the page being left must not be set while the next page loads.
+    for (const select of semesters.discover(document)) staleSemesters.add(select);
+    document.dispatchEvent(new CustomEvent('vtop-page-visit'));
+  }
   let knownSemesters = new Map(), semestersUpdated = 0, semesterFetch = null, semesterFetchFailed = false;
   const semesterPicker = shadow.querySelector('#default-semester');
   const semesterCombobox = combobox.create(semesterPicker, { label: 'Default semester', id: 'default-semester-trigger' });
@@ -102,7 +112,7 @@
   }
   function setSemesterPreference(value) {
     defaultSemester = value?.value && value?.label ? { value: String(value.value), label: String(value.label) } : null;
-    appliedSemesters = new WeakMap();
+    appliedSemesters = new Map();
     shadow.querySelector('.semester-button').textContent = defaultSemester?.label || 'Semester';
     shadow.querySelector('.semester-button').title = defaultSemester ? `Default: ${defaultSemester.label}` : 'Choose default semester';
     shadow.querySelector('.semester-chip').textContent = defaultSemester?.label.replace(/\s+Semester/i, '') || 'Set semester';
@@ -158,13 +168,12 @@
       if (choices.length) rememberSemesters(choices, { fresh: true });
       if (!choices.length || semesters.transactional(select)) continue;
       pageHasSemesters = true;
-      if (!defaultSemester || globalThis.VtopFormPresets?.owns(select)) continue;
-      const signature = JSON.stringify(choices);
-      if (appliedSemesters.get(select) === signature) continue;
+      if (!defaultSemester || staleSemesters.has(select) || globalThis.VtopFormPresets?.owns(select)) continue;
+      if (appliedSemesters.get(semesterSlot(select)) === pageVisit) continue;
       const choice = semesters.match(select, defaultSemester);
       if (!choice) continue;
-      // Record before dispatch: VTOP's handler may synchronously replace options.
-      appliedSemesters.set(select, signature);
+      // Record before dispatch: VTOP's handler may synchronously replace the dropdown.
+      appliedSemesters.set(semesterSlot(select), pageVisit);
       if (select.value === choice.value) continue;
       if (globalThis.VtopPageActions) globalThis.VtopPageActions.change(select, choice.value);
       else { select.value = choice.value; select.dispatchEvent(new Event('change', { bubbles: true })); }
@@ -338,6 +347,7 @@
       (toggles.find(toggle => toggle.matches('.hmenuItem')) || toggles[0])?.click();
     }
   }
+  document.addEventListener('click', event => { if (event.target?.closest?.(pageLinks)) newPageVisit(); }, true);
   document.addEventListener('click', event => {
     const target = event.target;
     if (!target?.closest || target.closest('.hmenubox, [data-bs-toggle="collapse"]')) return;

@@ -247,3 +247,11 @@ test('each marks table gets a Total row, with marks lost in its Remark cell',asy
  // The outer course table has no Mark Title column and is left alone.
  assert.equal(w.document.querySelector('.customTable').querySelectorAll(':scope > tbody > .vtop-mark-total').length,0);dom.window.close();
 });
+test('All semesters on Course Page survives a re-render in the same visit and resets on a new page',async()=>{
+ const {dom,w}=setup(registeredCourses,{defaultSemester:defaultFall});await pause();
+ w.document.querySelector('.vtop-course-scope').shadowRoot.querySelector('.all').click();
+ const fresh=()=>{const html=registeredCourses.match(/<select id="courseId">[\s\S]*?<\/select>/)[0];const box=w.document.createElement('div');box.innerHTML=html;w.document.querySelector('#courseId').replaceWith(box.firstChild);};
+ fresh();await pause();assert.deepEqual([...w.document.querySelector('#courseId').options].map(o=>o.value),['','W1','F1','OLD','F2'],'still all semesters after VTOP re-renders');
+ const link=w.document.createElement('a');link.className='systemB5BtnMenu';link.dataset.url='academics/common/CoursePageConsolidated';link.href='#';link.addEventListener('click',e=>e.preventDefault());w.document.body.append(link);link.click();
+ fresh();await pause();assert.deepEqual([...w.document.querySelector('#courseId').options].map(o=>o.value),['','F1','F2'],'a new visit starts filtered to the default');dom.window.close();
+});
